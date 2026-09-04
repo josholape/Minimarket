@@ -3,6 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
+const productRoutes = require('./routes/products');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +30,9 @@ app.get('/api/test-db', async (req, res) => {
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+
+// Product routes
+app.use('/api/products', productRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
