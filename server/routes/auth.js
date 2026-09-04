@@ -90,4 +90,17 @@ router.post('/login', async (req, res) => {
   }
 });
 
+const authMiddleware = require('../middleware/authMiddleware');
+
+// PROTECTED TEST ROUTE
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, name, email, is_admin, created_at FROM users WHERE id = $1', [req.user.userId]);
+    res.json({ success: true, user: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
 module.exports = router;
