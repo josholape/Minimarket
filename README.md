@@ -3,33 +3,23 @@
 ## Stack
 React + Tailwind (client) | Node/Express + PostgreSQL (server)
 
-## Status: Phase 2 COMPLETE — Express + DB connection confirmed working
+## Status: Phase 6 in progress — Cart add/view confirmed working
 
 ### Done
-- PostgreSQL 18 installed, `minimarket_db` created
-- /server scaffolded: express, pg, dotenv, cors, nodemon
-- db.js — connection pool working
-- server.js — test routes working (/ and /api/test-db)
-- Fixed bug: DB_PORT was mistakenly set to 5000 (Express's port) instead of 5432 (Postgres's port)
-- Git: main + dev branches on GitHub, main is default, working on dev
+- Phase 1-2: Project setup, PostgreSQL + Express connected
+- Phase 3: Full schema created (users, categories, products, cart_items, orders, order_items)
+- Phase 4: Auth API — register, login, JWT, authMiddleware (protected routes)
+- Phase 5: Products API — full CRUD, public read / admin-only write, adminMiddleware
+- Phase 6: Cart API — POST (add/increment) and GET (view with product JOIN) tested working
 
-### Phase 3 — Database schema
-- Design tables: users, products, categories, cart_items, orders, order_items
-- Write SQL to create tables with proper relationships (foreign keys)
-
-### Phase 4 — added JWT token routes,middleware register and login endpoints
-- Added verification JWT
-- Auth API
-- Auth Middleware
-- register and login endpoints working with bcrypt + JWT
+### Next up (Phase 6 remaining)
+- Test PUT /api/cart/:id (update quantity)
+- Test DELETE /api/cart/:id (remove item)
+- Then Phase 7: Orders API (checkout — turns cart into an order, clears cart)
 
 ### Notes
-- Server runs on port 5000, Postgres on 5432 — don't mix these up in .env again
-- npm run dev must be run from inside /server, not root
-- .env is gitignored, recreate on new machines using .env structure below:
-  DB_USER=postgres
-  DB_PASSWORD= (password)
-  DB_HOST=localhost
-  DB_PORT=5432
-  DB_NAME=minimarket_db
-  PORT=5000
+- routes/cart.js required login on ALL routes via router.use(authMiddleware)
+- ON CONFLICT (user_id, product_id) DO UPDATE handles "add same product twice" by incrementing quantity
+- Gotcha hit today: filename mismatch (carts.js vs required './routes/cart') caused MODULE_NOT_FOUND — keep filenames matching require() paths exactly
+- Test admin token still valid, test user: test@example.com / password123 (is_admin: true)
+- Product id 2 = "Wireless Mouse" exists in DB for testing

@@ -4,6 +4,7 @@ require('dotenv').config();
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
+const cartRoutes = require('./routes/cart');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +34,9 @@ app.use('/api/auth', authRoutes);
 
 // Product routes
 app.use('/api/products', productRoutes);
+
+// Cart routes
+app.use('/api/cart', cartRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
