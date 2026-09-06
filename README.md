@@ -12,9 +12,17 @@ React + Tailwind (client) | Node/Express + PostgreSQL (server)
 - Phase 5: Products API — full CRUD, public read / admin-only write, adminMiddleware
 - Phase 6: Cart API — POST (add/increment) and GET (view with product JOIN) tested working
 
+### Phase 5 details (Products API)
+- Routes: GET / (public, list all w/ category JOIN), GET /:id (public), POST / PUT /:id DELETE /:id (admin-only via authMiddleware + adminMiddleware stacked)
+- adminMiddleware created separately from authMiddleware — checks req.user.isAdmin, returns 403 if not admin (vs 401 if not logged in at all)
+- Had to manually promote test user to is_admin = true directly in Postgres (no public admin signup, by design) — required logging in again afterward since JWT bakes in isAdmin at time of login/register, doesn't update retroactively
+- Tested CREATE, READ (all + single), UPDATE — all confirmed working
+- Gotcha: left Postman method dropdown on DELETE by mistake, accidentally deleted test product (id 1) instead of running the planned UPDATE test — confirmed DELETE endpoint works correctly (returned 404 on second delete attempt of same id), just wasn't the intended test. Recreated product as id 2 ("Wireless Mouse") to continue testing.
+- Lesson: double-check the method dropdown in Postman before Send, especially when reusing a request tab
+
 ### Next up (Phase 6 remaining)
-- Test PUT /api/cart/:id (update quantity)
-- Test DELETE /api/cart/:id (remove item)
+- Test PUT /api/cart/:id (update quantity) TESTED
+- Test DELETE /api/cart/:id (remove item) ADDED
 - Then Phase 7: Orders API (checkout — turns cart into an order, clears cart)
 
 ### Notes
