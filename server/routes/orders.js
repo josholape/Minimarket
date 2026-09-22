@@ -99,4 +99,32 @@ router.get('/', async (req, res) => {
     res.status(500).json({ success: false, error: 'Server error fetching orders' });
   }
 });
-;
+
+// GET single order with its items
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const orderResult = await pool.query(
+      'SELECT * FROM orders WHERE id = $1 AND user_id = $2',
+      [id, req.user.userId]
+    );
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    const itemsResult = await pool.query(
+      `SELECT oi.*, p.name, p.image_url
+       FROM order_items oi
+       LEFT JOIN products p ON oi.product_id = p.id
+       WHERE oi.order_id = $1`,
+      [id]
+    );
+
+    res.json({ success: true, order: orderResult.rows[0], items: itemsResult.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error fetching order' });
+  }
+});
+
+module.exports = router;
