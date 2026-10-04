@@ -1,4 +1,4 @@
--- USERS
+
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
@@ -8,14 +8,14 @@ CREATE TABLE users (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- CATEGORIES
+
 CREATE TABLE categories (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) UNIQUE NOT NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- PRODUCTS
+
 CREATE TABLE products (
   id SERIAL PRIMARY KEY,
   name VARCHAR(200) NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE products (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- CARTITEMS
+
 CREATE TABLE cart_items (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -37,7 +37,7 @@ CREATE TABLE cart_items (
   UNIQUE (user_id, product_id)
 );
 
--- ORDERS
+
 CREATE TABLE orders (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -46,7 +46,7 @@ CREATE TABLE orders (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- ORDER ITEMS
+
 CREATE TABLE order_items (
   id SERIAL PRIMARY KEY,
   order_id INT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
