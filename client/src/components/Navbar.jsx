@@ -15,6 +15,9 @@ function Navbar() {
           <Link to="/cart" className="hover:text-blue-600">Cart</Link>
           {user ? (
             <>
+              {user?.is_admin && (
+                <Link to="/admin/products" className="hover:text-blue-600">Admin</Link>
+              )}
               <span className="text-gray-500">Hi, {user.name}</span>
               <button onClick={logout} className="hover:text-blue-600">Logout</button>
             </>

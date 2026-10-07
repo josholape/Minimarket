@@ -6,6 +6,7 @@ const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/orders');
+const categoryRoutes = require('./routes/categories');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -41,6 +42,9 @@ app.use('/api/cart', cartRoutes);
 
 // Order routes
 app.use('/api/orders', orderRoutes);
+
+// Category routes
+app.use('/api/categories', categoryRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

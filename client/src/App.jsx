@@ -5,6 +5,8 @@ import ProductDetail from './pages/ProductDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Cart from './pages/Cart';
+import AdminRoute from './components/AdminRoute';
+import AdminProducts from './pages/AdminProducts';
 
 function App() {
   return (
@@ -20,5 +22,14 @@ function App() {
     </>
   );
 }
+
+<Route
+  path="/admin/products"
+  element={
+    <AdminRoute>
+      <AdminProducts />
+    </AdminRoute>
+  }
+/>
 
 export default App;
