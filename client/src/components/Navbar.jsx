@@ -13,6 +13,7 @@ function Navbar() {
         <div className="flex gap-4 text-sm items-center">
           <Link to="/" className="hover:text-blue-600">Home</Link>
           <Link to="/cart" className="hover:text-blue-600">Cart</Link>
+          <Link to="/orders" className="hover:text-blue-600">Orders</Link>
           {user ? (
             <>
               {user?.is_admin && (
