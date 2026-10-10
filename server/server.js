@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
@@ -7,6 +8,7 @@ const productRoutes = require('./routes/products');
 const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/orders');
 const categoryRoutes = require('./routes/categories');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,6 +33,9 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
+// Serve uploaded images
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Auth routes
 app.use('/api/auth', authRoutes);
 
@@ -45,6 +50,9 @@ app.use('/api/orders', orderRoutes);
 
 // Category routes
 app.use('/api/categories', categoryRoutes);
+
+// Upload route
+app.use('/api/upload', uploadRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

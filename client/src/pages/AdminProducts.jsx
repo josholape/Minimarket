@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../api';
 
 const emptyForm = {
@@ -16,8 +16,10 @@ function AdminProducts() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
-  const loadData = useCallback(async () => {
+  async function loadData() {
     try {
       const [p, c] = await Promise.all([api.get('/products'), api.get('/categories')]);
       setProducts(p.data.products);
@@ -26,35 +28,42 @@ function AdminProducts() {
       console.error(err);
       setMessage('Failed to load data');
     }
-  }, []);
+  }
 
   useEffect(() => {
-    let active = true;
-
-    const fetchInitialData = async () => {
-      try {
-        const [p, c] = await Promise.all([api.get('/products'), api.get('/categories')]);
-        if (!active) return;
-
-        setProducts(p.data.products);
-        setCategories(c.data.categories);
-      } catch (err) {
-        if (!active) return;
-
-        console.error(err);
-        setMessage('Failed to load data');
-      }
-    };
-
-    void fetchInitialData();
-
-    return () => {
-      active = false;
-    };
+    loadData();
   }, []);
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
+  }
+
+  async function uploadImage(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setMessage('Please choose an image file');
+      return;
+    }
+
+    const data = new FormData();
+    data.append('image', file);
+
+    setUploading(true);
+    try {
+      const res = await api.post('/upload', data);
+      setForm((prev) => ({ ...prev, image_url: res.data.image_url }));
+      setMessage('Image uploaded. Click Save to apply it to the product.');
+    } catch (err) {
+      setMessage(err.response?.data?.error || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragging(false);
+    uploadImage(e.dataTransfer.files[0]);
   }
 
   async function handleSubmit(e) {
@@ -136,7 +145,38 @@ function AdminProducts() {
           <input name="stock" type="number" min="0" placeholder="Stock" value={form.stock} onChange={handleChange} className={inputClass} />
         </div>
 
-        <input name="image_url" placeholder="Image URL (e.g. /images/mouse.jpg)" value={form.image_url} onChange={handleChange} className={inputClass} />
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded p-4 text-center text-sm ${
+            dragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+          }`}
+        >
+          {form.image_url && (
+            <img src={form.image_url} alt="Preview" className="h-32 mx-auto mb-2 object-cover rounded" />
+          )}
+          <p className="text-gray-500 mb-1">
+            {uploading ? 'Uploading...' : 'Drag and drop an image here, or'}
+          </p>
+          <label className="text-blue-600 cursor-pointer hover:underline">
+            choose a file
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => uploadImage(e.target.files[0])}
+            />
+          </label>
+        </div>
+
+        <input
+          name="image_url"
+          placeholder="...or paste an image URL"
+          value={form.image_url}
+          onChange={handleChange}
+          className={inputClass}
+        />
 
         <select name="category_id" value={form.category_id} onChange={handleChange} className={inputClass}>
           <option value="">No category</option>
