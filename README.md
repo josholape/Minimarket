@@ -166,6 +166,9 @@ Base URL: `http://localhost:5000/api`
 
 Protected routes expect the header `Authorization: Bearer <token>`.
 
+### UPLOAD
+| POST | `/upload` | Admin | Upload a product image (multipart form, field `image`), returns `image_url` |
+
 ## Database Design
 
 Six tables:
@@ -197,8 +200,11 @@ Design decisions worth remembering:
 - [x] Order history page
 - [x] Admin page for managing products
 - [x] Real product images
-- [ ] Search and category filtering
-- [ ] Cart item count in the navbar
+- [x] Search and category filtering
+- [x] Cart item count in the navbar
+- [x] Order history page
+- [x] Admin page for managing products
+- [x] Real product images (drag-and-drop upload)
 
 ## Lessons Learned
 
