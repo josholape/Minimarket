@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 
 const emptyForm = {
@@ -17,7 +17,7 @@ function AdminProducts() {
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState('');
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       const [p, c] = await Promise.all([api.get('/products'), api.get('/categories')]);
       setProducts(p.data.products);
@@ -26,10 +26,31 @@ function AdminProducts() {
       console.error(err);
       setMessage('Failed to load data');
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadData();
+    let active = true;
+
+    const fetchInitialData = async () => {
+      try {
+        const [p, c] = await Promise.all([api.get('/products'), api.get('/categories')]);
+        if (!active) return;
+
+        setProducts(p.data.products);
+        setCategories(c.data.categories);
+      } catch (err) {
+        if (!active) return;
+
+        console.error(err);
+        setMessage('Failed to load data');
+      }
+    };
+
+    void fetchInitialData();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   function handleChange(e) {
