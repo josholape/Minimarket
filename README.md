@@ -194,9 +194,9 @@ Design decisions worth remembering:
 - [x] Phase 6: Cart API
 - [x] Phase 7: Orders API with checkout transaction
 - [x] Phase 8: React frontend (routing, auth context, product pages, cart and checkout)
-- [ ] Order history page
-- [ ] Admin page for managing products
-- [ ] Real product images
+- [x] Order history page
+- [x] Admin page for managing products
+- [x] Real product images
 - [ ] Search and category filtering
 - [ ] Cart item count in the navbar
 
