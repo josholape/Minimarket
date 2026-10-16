@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import { formatPrice } from '../utils/currency';
 
 function Cart() {
   const { user } = useAuth();
+  const { refreshCart } = useCart();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -23,8 +25,8 @@ function Cart() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (user) loadCart();
-    else setLoading(false);
   }, [user]);
 
   async function updateQuantity(id, quantity) {
@@ -32,6 +34,7 @@ function Cart() {
     try {
       await api.put(`/cart/${id}`, { quantity });
       loadCart();
+      refreshCart();
     } catch (err) {
       setMessage(err.response?.data?.error || 'Could not update quantity');
     }
@@ -41,6 +44,7 @@ function Cart() {
     try {
       await api.delete(`/cart/${id}`);
       loadCart();
+      refreshCart();
     } catch (err) {
       setMessage(err.response?.data?.error || 'Could not remove item');
     }
@@ -50,6 +54,7 @@ function Cart() {
     try {
       const res = await api.post('/orders/checkout');
       setItems([]);
+      refreshCart();
       setMessage(`Order #${res.data.order.id} placed! Total: ${formatPrice(res.data.order.total_amount)}`);
     } catch (err) {
       setMessage(err.response?.data?.error || 'Checkout failed');

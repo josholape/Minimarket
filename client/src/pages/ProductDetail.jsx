@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import { formatPrice } from '../utils/currency';
 
 function ProductDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { refreshCart } = useCart();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,7 @@ function ProductDetail() {
     }
     try {
       await api.post('/cart', { product_id: product.id, quantity: 1 });
+      refreshCart();
       setMessage('Added to cart!');
     } catch (err) {
       setMessage(err.response?.data?.error || 'Could not add to cart');
