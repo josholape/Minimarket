@@ -20,7 +20,7 @@ function Home() {
         ]);
         setProducts(productsRes.data.products);
         // Works whether /api/categories returns [...] or { categories: [...] }
-        setCategories(categoriesRes.data.categories ?? categoriesRes.data);
+        setCategories(categoriesRes.data.categories);
       } catch (err) {
         console.error(err);
         setError('Failed to load products');

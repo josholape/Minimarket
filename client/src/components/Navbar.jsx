@@ -29,6 +29,7 @@ function Navbar() {
                 <>
                   <Link to="/admin/products" className="hover:text-blue-600">Admin</Link>
                   <Link to="/admin/orders" className="hover:text-blue-600">Manage Orders</Link>
+                  <Link to="/admin/categories" className="hover:text-blue-600">Categories</Link>
                 </>
               )}
               <span className="text-gray-500">Hi, {user.name}</span>
