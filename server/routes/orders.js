@@ -27,7 +27,7 @@ router.get('/admin/all', adminMiddleware, async (req, res) => {
   }
 });
 
-// ADMIN: change an order's status
+// ADMIN: change an order's status (restores stock when cancelling)
 router.put('/:id/status', adminMiddleware, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -39,19 +39,66 @@ router.put('/:id/status', adminMiddleware, async (req, res) => {
     });
   }
 
+  const client = await pool.connect();
+
   try {
-    const result = await pool.query(
+    await client.query('BEGIN');
+
+    // 1. Read the current status and lock the row until we finish
+    const current = await client.query(
+      'SELECT status FROM orders WHERE id = $1 FOR UPDATE',
+      [id]
+    );
+
+    if (current.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    const oldStatus = current.rows[0].status;
+
+    // 2. Cancelled orders can't be reopened (stock was already given back)
+    if (oldStatus === 'cancelled' && status !== 'cancelled') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        error: 'A cancelled order cannot be reopened'
+      });
+    }
+
+    // 3. Going to cancelled: put each item's quantity back into stock
+    if (status === 'cancelled' && oldStatus !== 'cancelled') {
+      const itemsResult = await client.query(
+        'SELECT product_id, quantity FROM order_items WHERE order_id = $1',
+        [id]
+      );
+
+      for (const item of itemsResult.rows) {
+        // product_id is NULL if the product was deleted later, so skip those
+        if (item.product_id === null) continue;
+        await client.query(
+          'UPDATE products SET stock = stock + $1 WHERE id = $2',
+          [item.quantity, item.product_id]
+        );
+      }
+    }
+
+    // 4. Save the new status
+    const result = await client.query(
       `UPDATE orders SET status = $1 WHERE id = $2
        RETURNING id, total_amount, status, created_at`,
       [status, id]
     );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
+
+    await client.query('COMMIT');
+
     res.json({ success: true, order: result.rows[0] });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error(err);
     res.status(500).json({ success: false, error: 'Server error updating order' });
+  } finally {
+    client.release();
   }
 });
 
