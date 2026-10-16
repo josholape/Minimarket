@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import { formatPrice } from '../utils/currency';
 
 function Home() {
   const [products, setProducts] = useState([]);
@@ -103,7 +104,7 @@ function Home() {
               <p className="text-gray-500 text-sm mb-2">
                 {product.category_name || 'Uncategorized'}
               </p>
-              <p className="text-blue-600 font-bold">${product.price}</p>
+              <p className="text-blue-600 font-bold">{formatPrice(product.price)}</p>
             </Link>
           ))}
         </div>

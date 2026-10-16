@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import { formatPrice } from '../utils/currency';
 
 function Cart() {
   const { user } = useAuth();
@@ -49,7 +50,7 @@ function Cart() {
     try {
       const res = await api.post('/orders/checkout');
       setItems([]);
-      setMessage(`Order #${res.data.order.id} placed! Total: $${res.data.order.total_amount}`);
+      setMessage(`Order #${res.data.order.id} placed! Total: ${formatPrice(res.data.order.total_amount)}`);
     } catch (err) {
       setMessage(err.response?.data?.error || 'Checkout failed');
     }
@@ -82,7 +83,7 @@ function Cart() {
               <div key={item.id} className="flex items-center justify-between border rounded p-4">
                 <div>
                   <p className="font-semibold">{item.name}</p>
-                  <p className="text-gray-500 text-sm">${item.price} each</p>
+                  <p className="text-gray-500 text-sm">{formatPrice(item.price)} each</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
@@ -110,7 +111,7 @@ function Cart() {
           </div>
 
           <div className="flex items-center justify-between mt-6">
-            <p className="text-xl font-bold">Total: ${total.toFixed(2)}</p>
+            <p className="text-xl font-bold">Total: {formatPrice(total)}</p>
             <button
               onClick={checkout}
               className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"

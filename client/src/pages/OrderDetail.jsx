@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api';
+import { formatPrice } from '../utils/currency';
 
 function OrderDetail() {
   const { id } = useParams();
@@ -43,17 +44,17 @@ function OrderDetail() {
             <div>
               <p className="font-semibold">{item.name || 'Product no longer available'}</p>
               <p className="text-gray-500 text-sm">
-                {item.quantity} × ${item.price_at_purchase}
+                {item.quantity} × {formatPrice(item.price_at_purchase)}
               </p>
             </div>
             <p className="font-bold">
-              ${(item.quantity * parseFloat(item.price_at_purchase)).toFixed(2)}
+              {formatPrice(item.quantity * parseFloat(item.price_at_purchase))}
             </p>
           </div>
         ))}
       </div>
 
-      <p className="text-xl font-bold text-right mt-6">Total: ${order.total_amount}</p>
+      <p className="text-xl font-bold text-right mt-6">Total: {formatPrice(order.total_amount)}</p>
     </div>
   );
 }
