@@ -1,10 +1,59 @@
 const express = require('express');
 const pool = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
 
 const router = express.Router();
 
 router.use(authMiddleware);
+
+const VALID_STATUSES = ['pending', 'shipped', 'completed', 'cancelled'];
+
+// ADMIN: get ALL orders with customer info
+// Must stay ABOVE '/:id', otherwise Express treats "admin" as an order id
+router.get('/admin/all', adminMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT o.id, o.total_amount, o.status, o.created_at,
+              u.name AS customer_name, u.email AS customer_email
+       FROM orders o
+       JOIN users u ON o.user_id = u.id
+       ORDER BY o.created_at DESC`
+    );
+    res.json({ success: true, orders: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error fetching orders' });
+  }
+});
+
+// ADMIN: change an order's status
+router.put('/:id/status', adminMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!VALID_STATUSES.includes(status)) {
+    return res.status(400).json({
+      success: false,
+      error: `Status must be one of: ${VALID_STATUSES.join(', ')}`
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE orders SET status = $1 WHERE id = $2
+       RETURNING id, total_amount, status, created_at`,
+      [status, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    res.json({ success: true, order: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Server error updating order' });
+  }
+});
 
 // CHECKOUT - convert cart into an order
 router.post('/checkout', async (req, res) => {

@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import Cart from './pages/Cart';
 import AdminRoute from './components/AdminRoute';
 import AdminProducts from './pages/AdminProducts';
+import AdminOrders from './pages/AdminOrders';
 import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
 
@@ -27,6 +28,14 @@ function App() {
           element={
             <AdminRoute>
               <AdminProducts />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/orders"
+          element={
+            <AdminRoute>
+              <AdminOrders />
             </AdminRoute>
           }
         />
