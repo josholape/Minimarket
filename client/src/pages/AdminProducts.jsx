@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
+import { formatPrice } from '../utils/currency';
 
 const emptyForm = {
   name: '',
@@ -30,9 +31,10 @@ function AdminProducts() {
     }
   }
 
-  useEffect(() => {
-    loadData();
-  }, []);
+useEffect(() => {
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  loadData();
+}, []);
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -215,7 +217,7 @@ function AdminProducts() {
                 <td className="p-3">{p.id}</td>
                 <td className="p-3">{p.name}</td>
                 <td className="p-3">{p.category_name || '—'}</td>
-                <td className="p-3">${p.price}</td>
+                <td className="p-3">{formatPrice(p.price)}</td>
                 <td className="p-3">{p.stock}</td>
                 <td className="p-3 space-x-3">
                   <button onClick={() => startEdit(p)} className="text-blue-600 hover:underline">Edit</button>

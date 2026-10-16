@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import { formatPrice } from '../utils/currency';
 
 function ProductDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { refreshCart } = useCart();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,6 +37,7 @@ function ProductDetail() {
     }
     try {
       await api.post('/cart', { product_id: product.id, quantity: 1 });
+      refreshCart();
       setMessage('Added to cart!');
     } catch (err) {
       setMessage(err.response?.data?.error || 'Could not add to cart');
@@ -56,7 +60,7 @@ function ProductDetail() {
         <div>
           <p className="text-gray-500 text-sm">{product.category_name || 'Uncategorized'}</p>
           <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
-          <p className="text-2xl text-blue-600 font-bold mb-4">${product.price}</p>
+          <p className="text-2xl text-blue-600 font-bold mb-4">{formatPrice(product.price)}</p>
           <p className="text-gray-700 mb-4">{product.description}</p>
           <p className="text-sm text-gray-500 mb-4">
             {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import { formatPrice } from '../utils/currency';
 
 const statusStyles = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -71,7 +72,7 @@ function Orders() {
                 <span className={`text-xs px-2 py-1 rounded ${statusStyles[order.status] || ''}`}>
                   {order.status}
                 </span>
-                <span className="font-bold">${order.total_amount}</span>
+                <span className="font-bold">{formatPrice(order.total_amount)}</span>
               </div>
             </Link>
           ))}
