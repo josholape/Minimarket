@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import { formatPrice } from '../utils/currency';
 
+const LOW_STOCK_THRESHOLD = 5;
+
 function Home() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -19,7 +21,6 @@ function Home() {
           api.get('/categories'),
         ]);
         setProducts(productsRes.data.products);
-        // Works whether /api/categories returns [...] or { categories: [...] }
         setCategories(categoriesRes.data.categories);
       } catch (err) {
         console.error(err);
@@ -31,7 +32,6 @@ function Home() {
     fetchData();
   }, []);
 
-  // Derived data: recomputed only when products, search or category change
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
     return products.filter((product) => {
@@ -89,24 +89,44 @@ function Home() {
         <p className="text-gray-500">No products match your search.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredProducts.map((product) => (
-            <Link
-              key={product.id}
-              to={`/products/${product.id}`}
-              className="border rounded-lg p-4 shadow-sm hover:shadow-md transition block"
-            >
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-full h-40 object-cover rounded mb-3 bg-gray-100"
-              />
-              <h2 className="font-semibold text-lg">{product.name}</h2>
-              <p className="text-gray-500 text-sm mb-2">
-                {product.category_name || 'Uncategorized'}
-              </p>
-              <p className="text-blue-600 font-bold">{formatPrice(product.price)}</p>
-            </Link>
-          ))}
+          {filteredProducts.map((product) => {
+            const stock = Number(product.stock);
+            const outOfStock = stock <= 0;
+            const lowStock = !outOfStock && stock <= LOW_STOCK_THRESHOLD;
+
+            return (
+              <Link
+                key={product.id}
+                to={`/products/${product.id}`}
+                className="border rounded-lg p-4 shadow-sm hover:shadow-md transition block"
+              >
+                <div className="relative mb-3">
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    className={`w-full h-40 object-cover rounded bg-gray-100 ${
+                      outOfStock ? 'opacity-50 grayscale' : ''
+                    }`}
+                  />
+                  {outOfStock && (
+                    <span className="absolute top-2 left-2 bg-gray-800 text-white text-xs font-semibold px-2 py-1 rounded">
+                      Out of stock
+                    </span>
+                  )}
+                  {lowStock && (
+                    <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-semibold px-2 py-1 rounded">
+                      Only {stock} left
+                    </span>
+                  )}
+                </div>
+                <h2 className="font-semibold text-lg">{product.name}</h2>
+                <p className="text-gray-500 text-sm mb-2">
+                  {product.category_name || 'Uncategorized'}
+                </p>
+                <p className="text-blue-600 font-bold">{formatPrice(product.price)}</p>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
