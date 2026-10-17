@@ -6,11 +6,19 @@ import { formatPrice } from '../utils/currency';
 const LOW_STOCK_THRESHOLD = 5;
 const PAGE_SIZE = 8;
 
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'price-asc', label: 'Price: low to high' },
+  { value: 'price-desc', label: 'Price: high to low' },
+  { value: 'name-asc', label: 'Name: A to Z' },
+];
+
 function Home() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null); // null = "All"
+  const [sort, setSort] = useState('newest');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,17 +42,34 @@ function Home() {
     fetchData();
   }, []);
 
+  // Filter first, then sort the result
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return products.filter((product) => {
+    const result = products.filter((product) => {
       const matchesCategory =
         selectedCategory === null || product.category_name === selectedCategory;
       const matchesSearch = product.name.toLowerCase().includes(term);
       return matchesCategory && matchesSearch;
     });
-  }, [products, search, selectedCategory]);
 
-  // Changing the search or category always goes back to page 1
+    // filter() returns a new array, so sorting it does not touch `products`
+    result.sort((a, b) => {
+      switch (sort) {
+        case 'price-asc':
+          return Number(a.price) - Number(b.price);
+        case 'price-desc':
+          return Number(b.price) - Number(a.price);
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        default: // 'newest'
+          return b.id - a.id;
+      }
+    });
+
+    return result;
+  }, [products, search, selectedCategory, sort]);
+
+  // Changing the search, category or sort always goes back to page 1
   function handleSearchChange(e) {
     setSearch(e.target.value);
     setPage(1);
@@ -52,6 +77,11 @@ function Home() {
 
   function selectCategory(name) {
     setSelectedCategory(name);
+    setPage(1);
+  }
+
+  function handleSortChange(e) {
+    setSort(e.target.value);
     setPage(1);
   }
 
@@ -97,7 +127,7 @@ function Home() {
       />
 
       {/* Category buttons */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={() => selectCategory(null)}
           className={buttonClass(selectedCategory === null)}
@@ -113,6 +143,23 @@ function Home() {
             {category.name}
           </button>
         ))}
+      </div>
+
+      {/* Sort dropdown */}
+      <div className="flex items-center justify-end gap-2 mb-6">
+        <label htmlFor="sort" className="text-sm text-gray-500">Sort by</label>
+        <select
+          id="sort"
+          value={sort}
+          onChange={handleSortChange}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Results */}
