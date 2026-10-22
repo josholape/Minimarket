@@ -27,6 +27,13 @@ export function AuthProvider({ children }) {
     setUser(user);
   }
 
+  // Merge new profile fields into the saved user (the token stays the same)
+  function updateUser(updates) {
+    const merged = { ...user, ...updates };
+    localStorage.setItem('user', JSON.stringify(merged));
+    setUser(merged);
+  }
+
   async function login(email, password) {
     const res = await api.post('/auth/login', { email, password });
     saveSession(res.data.user, res.data.token);
@@ -44,12 +51,13 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   return useContext(AuthContext);
 }

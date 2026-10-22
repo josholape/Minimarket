@@ -127,6 +127,19 @@ function OrderDetail() {
       </div>
 
       <p className="text-xl font-bold text-right mt-6">Total: {formatPrice(order.total_amount)}</p>
+
+      {/* Shipping address (older orders don't have one) */}
+      {order.shipping_address && (
+        <div className="border rounded-lg p-4 mt-8">
+          <h2 className="font-semibold mb-2">Shipping to</h2>
+          <p>{order.shipping_name}</p>
+          <p className="text-gray-600 text-sm">{order.shipping_phone}</p>
+          <p className="text-gray-600 text-sm">{order.shipping_address}</p>
+          <p className="text-gray-600 text-sm">
+            {order.shipping_city}, {order.shipping_province} {order.shipping_postal_code}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

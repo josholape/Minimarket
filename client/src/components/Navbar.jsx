@@ -12,7 +12,7 @@ function Navbar() {
         <Link to="/" className="text-xl font-bold text-blue-600">
           MiniMarket
         </Link>
-        <div className="flex gap-4 text-sm items-center">
+        <div className="flex flex-wrap justify-end gap-x-4 gap-y-2 text-sm items-center">
           <Link to="/" className="hover:text-blue-600">Home</Link>
           <Link to="/cart" className="hover:text-blue-600 flex items-center gap-1">
             Cart
@@ -27,12 +27,13 @@ function Navbar() {
             <>
               {user?.is_admin && (
                 <>
+                  <Link to="/admin/dashboard" className="hover:text-blue-600">Dashboard</Link>
                   <Link to="/admin/products" className="hover:text-blue-600">Admin</Link>
                   <Link to="/admin/orders" className="hover:text-blue-600">Manage Orders</Link>
                   <Link to="/admin/categories" className="hover:text-blue-600">Categories</Link>
                 </>
               )}
-              <span className="text-gray-500">Hi, {user.name}</span>
+              <Link to="/account" className="text-gray-500 hover:text-blue-600">Hi, {user.name}</Link>
               <button onClick={logout} className="hover:text-blue-600">Logout</button>
             </>
           ) : (

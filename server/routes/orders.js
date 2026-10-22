@@ -9,12 +9,36 @@ router.use(authMiddleware);
 
 const VALID_STATUSES = ['pending', 'shipped', 'completed', 'cancelled'];
 
+// [field name, label for error messages, max length]
+const SHIPPING_FIELDS = [
+  ['name', 'Full name', 100],
+  ['phone', 'Phone number', 30],
+  ['address', 'Street address', 255],
+  ['city', 'City', 100],
+  ['province', 'Province', 100],
+  ['postal_code', 'Postal code', 20],
+];
+
+// Returns { data } with trimmed values, or { error } describing the first problem
+function validateShipping(input) {
+  const data = {};
+  for (const [key, label, max] of SHIPPING_FIELDS) {
+    const value = String(input?.[key] ?? '').trim();
+    if (!value) return { error: `${label} is required` };
+    if (value.length > max) return { error: `${label} must be ${max} characters or less` };
+    data[key] = value;
+  }
+  return { data };
+}
+
 // ADMIN: get ALL orders with customer info
 // Must stay ABOVE '/:id', otherwise Express treats "admin" as an order id
 router.get('/admin/all', adminMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT o.id, o.total_amount, o.status, o.created_at,
+              o.shipping_name, o.shipping_phone, o.shipping_address,
+              o.shipping_city, o.shipping_province, o.shipping_postal_code,
               u.name AS customer_name, u.email AS customer_email
        FROM orders o
        JOIN users u ON o.user_id = u.id
@@ -102,8 +126,14 @@ router.put('/:id/status', adminMiddleware, async (req, res) => {
   }
 });
 
-// CHECKOUT - convert cart into an order
+// CHECKOUT - convert cart into an order (requires a shipping address)
 router.post('/checkout', async (req, res) => {
+  // Validate the address before touching the database
+  const { data: shipping, error: shippingError } = validateShipping(req.body.shipping);
+  if (shippingError) {
+    return res.status(400).json({ success: false, error: shippingError });
+  }
+
   const client = await pool.connect();
 
   try {
@@ -142,12 +172,24 @@ router.post('/checkout', async (req, res) => {
       0
     );
 
-    // 4. Create the order
+    // 4. Create the order (with its shipping address)
     const orderResult = await client.query(
-      `INSERT INTO orders (user_id, total_amount, status)
-       VALUES ($1, $2, 'pending')
+      `INSERT INTO orders
+         (user_id, total_amount, status,
+          shipping_name, shipping_phone, shipping_address,
+          shipping_city, shipping_province, shipping_postal_code)
+       VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, $8)
        RETURNING id, total_amount, status, created_at`,
-      [req.user.userId, totalAmount]
+      [
+        req.user.userId,
+        totalAmount,
+        shipping.name,
+        shipping.phone,
+        shipping.address,
+        shipping.city,
+        shipping.province,
+        shipping.postal_code,
+      ]
     );
     const order = orderResult.rows[0];
 
