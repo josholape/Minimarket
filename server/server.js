@@ -9,6 +9,9 @@ const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/orders');
 const categoryRoutes = require('./routes/categories');
 const uploadRoutes = require('./routes/upload');
+const addressRoutes = require('./routes/addresses');
+const adminRoutes = require('./routes/admin');
+const reviewRoutes = require('./routes/reviews');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -53,6 +56,15 @@ app.use('/api/categories', categoryRoutes);
 
 // Upload route
 app.use('/api/upload', uploadRoutes);
+
+// Saved address routes
+app.use('/api/addresses', addressRoutes);
+
+// Admin routes (dashboard)
+app.use('/api/admin', adminRoutes);
+
+// Review routes added
+app.use('/api/reviews', reviewRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
