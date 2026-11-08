@@ -31,6 +31,7 @@ function Register() {
           placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          maxLength={100}
           className="w-full border rounded px-3 py-2"
           required
         />
@@ -39,17 +40,23 @@ function Register() {
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          maxLength={150}
           className="w-full border rounded px-3 py-2"
           required
         />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full border rounded px-3 py-2"
-          required
-        />
+        <div>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={8}
+            maxLength={72}
+            className="w-full border rounded px-3 py-2"
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">At least 8 characters.</p>
+        </div>
         <button className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
           Register
         </button>
