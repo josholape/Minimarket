@@ -1,1 +1,15 @@
-   @import "tailwindcss";
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eff6ff;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --font-sans: "Segoe UI", system-ui, sans-serif;
+}
+
+@layer base {
+  body { margin: 0; color: #172033; font-family: var(--font-sans); }
+  button, input { font: inherit; }
+  button:not(:disabled) { cursor: pointer; }
+  :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+}
