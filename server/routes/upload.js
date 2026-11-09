@@ -25,10 +25,10 @@ if (cloudinaryConfigured) {
 
 const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-// The file is kept in memory (max 5MB) just long enough to forward it to Cloudinary
+// The file is kept in memory (max 4MB) just long enough to forward it to Cloudinary
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 4 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (allowedTypes.includes(file.mimetype)) cb(null, true);
     else cb(new Error('Only JPG, PNG, WEBP or GIF images are allowed'));
@@ -56,7 +56,7 @@ function uploadToCloudinary(buffer) {
 router.post('/', authMiddleware, adminMiddleware, (req, res) => {
   upload.single('image')(req, res, async (err) => {
     if (err) {
-      const message = err.code === 'LIMIT_FILE_SIZE' ? 'Image must be under 5MB' : err.message;
+      const message = err.code === 'LIMIT_FILE_SIZE' ? 'Image must be 4MB or smaller' : err.message;
       return res.status(400).json({ success: false, error: message });
     }
     if (!req.file) {

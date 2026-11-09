@@ -94,3 +94,21 @@ CREATE TABLE password_reset_tokens (
 );
 
 CREATE INDEX idx_reset_tokens_user ON password_reset_tokens(user_id);
+
+-- Customer reviews: one review per product and user
+CREATE TABLE reviews (
+  id SERIAL PRIMARY KEY,
+  product_id INT NOT NULL
+    REFERENCES products(id) ON DELETE CASCADE,
+  user_id INT NOT NULL
+    REFERENCES users(id) ON DELETE CASCADE,
+  rating INT NOT NULL
+    CHECK (rating >= 1 AND rating <= 5),
+  comment TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE (product_id, user_id)
+);
+
+CREATE INDEX idx_reviews_product
+  ON reviews(product_id);

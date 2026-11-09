@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 require('dotenv').config();
 const pool = require('./db');
@@ -12,13 +13,34 @@ const uploadRoutes = require('./routes/upload');
 const addressRoutes = require('./routes/addresses');
 const adminRoutes = require('./routes/admin');
 const reviewRoutes = require('./routes/reviews');
+const {
+  apiLimiter, loginLimiter, registerLimiter, forgotLimiter, resetLimiter,
+} = require('./middleware/rateLimiters');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// On Vercel, Express sits behind the platform proxy.
+// Revisit this hop count if you deploy behind another proxy architecture.
+if (process.env.VERCEL) app.set('trust proxy', 1);
+
+const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+if (isProduction && !process.env.CLIENT_URL) {
+  throw new Error('CLIENT_URL must be set in production.');
+}
+const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
+// Allow product images from this API to appear on the separate frontend origin.
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(cors({ origin: clientUrl }));
+app.use(express.json({ limit: '100kb' }));
+
+// Rate limits run before the corresponding routes.
+app.use('/api', apiLimiter);
+app.post('/api/auth/login', loginLimiter);
+app.post('/api/auth/register', registerLimiter);
+app.post('/api/auth/forgot-password', forgotLimiter);
+app.post('/api/auth/reset-password', resetLimiter);
 
 // Test route
 app.get('/', (req, res) => {
@@ -32,7 +54,7 @@ app.get('/api/test-db', async (req, res) => {
     res.json({ success: true, time: result.rows[0].now });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: 'Database connection failed' });
   }
 });
 
@@ -66,6 +88,10 @@ app.use('/api/admin', adminRoutes);
 // Review routes added
 app.use('/api/reviews', reviewRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

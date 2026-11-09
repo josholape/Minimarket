@@ -168,101 +168,111 @@ router.post('/buy-now', async (req, res) => {
   } finally { client?.release(); }
 });
 
-// CHECKOUT - convert cart into an order (requires a shipping address)
+// CHECKOUT: serialize a user's checkouts, then lock cart rows and stock.
 router.post('/checkout', async (req, res) => {
-  // Validate the address before touching the database
   const { data: shipping, error: shippingError } = validateShipping(req.body.shipping);
   if (shippingError) {
     return res.status(400).json({ success: false, error: shippingError });
   }
 
-  const client = await pool.connect();
-
+  let client;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
 
-    // 1. Get current cart items with product prices
-    const cartResult = await client.query(
-      `SELECT ci.product_id, ci.quantity, p.price, p.stock, p.name
-       FROM cart_items ci
-       JOIN products p ON ci.product_id = p.id
-       WHERE ci.user_id = $1`,
+    // A second checkout for this account waits before reading its cart.
+    const userResult = await client.query(
+      'SELECT id FROM users WHERE id = $1 FOR NO KEY UPDATE',
       [req.user.userId]
     );
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ success: false, error: 'Account no longer exists' });
+    }
 
+    // Lock current cart rows so quantity edits cannot change this snapshot.
+    const cartResult = await client.query(
+      `SELECT id, product_id, quantity
+       FROM cart_items
+       WHERE user_id = $1
+       ORDER BY product_id
+       FOR UPDATE`,
+      [req.user.userId]
+    );
     const cartItems = cartResult.rows;
-
     if (cartItems.length === 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ success: false, error: 'Cart is empty' });
     }
 
-    // 2. Check stock availability for every item
+    // Read stock after acquiring locks. Stable order reduces deadlock risk.
+    const productIds = cartItems.map(item => item.product_id);
+    const productsResult = await client.query(
+      `SELECT id, name, price, stock
+       FROM products
+       WHERE id = ANY($1::int[])
+       ORDER BY id
+       FOR UPDATE`,
+      [productIds]
+    );
+    const products = new Map(productsResult.rows.map(product => [product.id, product]));
     for (const item of cartItems) {
-      if (item.quantity > item.stock) {
+      const product = products.get(item.product_id);
+      if (!product || item.quantity > product.stock) {
         await client.query('ROLLBACK');
         return res.status(400).json({
           success: false,
-          error: `Not enough stock for ${item.name}. Available: ${item.stock}`
+          error: product
+            ? `Not enough stock for ${product.name}. Available: ${product.stock}`
+            : 'A product is no longer available. Please refresh your cart.',
         });
       }
     }
 
-    // 3. Calculate total
-    const totalAmount = cartItems.reduce(
-      (sum, item) => sum + (parseFloat(item.price) * item.quantity),
-      0
+    const cartIds = cartItems.map(item => item.id);
+    // Calculate currency with PostgreSQL numeric arithmetic.
+    const totalResult = await client.query(
+      `SELECT SUM(p.price * ci.quantity) AS total
+       FROM cart_items ci
+       JOIN products p ON p.id = ci.product_id
+       WHERE ci.id = ANY($1::int[]) AND ci.user_id = $2`,
+      [cartIds, req.user.userId]
     );
-
-    // 4. Create the order (with its shipping address)
     const orderResult = await client.query(
       `INSERT INTO orders
-         (user_id, total_amount, status,
-          shipping_name, shipping_phone, shipping_address,
-          shipping_city, shipping_province, shipping_postal_code)
+       (user_id, total_amount, status, shipping_name, shipping_phone,
+        shipping_address, shipping_city, shipping_province, shipping_postal_code)
        VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, $8)
        RETURNING id, total_amount, status, created_at`,
-      [
-        req.user.userId,
-        totalAmount,
-        shipping.name,
-        shipping.phone,
-        shipping.address,
-        shipping.city,
-        shipping.province,
-        shipping.postal_code,
-      ]
+      [req.user.userId, totalResult.rows[0].total,
+       shipping.name, shipping.phone, shipping.address,
+       shipping.city, shipping.province, shipping.postal_code]
     );
     const order = orderResult.rows[0];
-
-    // 5. Insert each cart item into order_items (snapshotting price)
     for (const item of cartItems) {
+      const product = products.get(item.product_id);
       await client.query(
         `INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase)
          VALUES ($1, $2, $3, $4)`,
-        [order.id, item.product_id, item.quantity, item.price]
+        [order.id, product.id, item.quantity, product.price]
       );
-
-      // 6. Reduce product stock
-      await client.query(
-        `UPDATE products SET stock = stock - $1 WHERE id = $2`,
-        [item.quantity, item.product_id]
-      );
+      await client.query('UPDATE products SET stock = stock - $1 WHERE id = $2',
+        [item.quantity, product.id]);
     }
 
-    // 7. Clear the cart
-    await client.query('DELETE FROM cart_items WHERE user_id = $1', [req.user.userId]);
-
+    // Preserve new cart rows added while checkout was running.
+    await client.query(
+      'DELETE FROM cart_items WHERE user_id = $1 AND id = ANY($2::int[])',
+      [req.user.userId, cartIds]
+    );
     await client.query('COMMIT');
-
     res.status(201).json({ success: true, order });
-
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error(err);
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    console.error('Checkout failed:', err.message);
     res.status(500).json({ success: false, error: 'Server error during checkout' });
   } finally {
-    client.release();
+    client?.release();
   }
 });
 
