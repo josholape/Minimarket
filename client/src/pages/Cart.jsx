@@ -140,12 +140,57 @@ function Cart() {
   const total = items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0);
 
   if (!user) {
-    return (
-      <p className="text-center mt-10">
-        Please <Link to="/login" className="text-blue-600 underline">log in</Link> to view your cart.
-      </p>
-    );
-  }
+  return (
+    <main className="mx-auto flex min-h-[60svh] max-w-lg items-center justify-center px-4 py-12">
+      <section
+        aria-labelledby="cart-signin-title"
+        className="w-full rounded-2xl border border-outline bg-surface-card p-8 text-center shadow-sm sm:p-10"
+      >
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-surface-input text-accent">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-10 w-10"
+          >
+            <path d="M3 3h2l2.4 11.4a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L22 7H6" />
+            <circle cx="10" cy="21" r="1" />
+            <circle cx="19" cy="21" r="1" />
+          </svg>
+        </div>
+
+        <h1
+          id="cart-signin-title"
+          className="text-2xl font-bold text-content-main"
+        >
+          Your cart awaits
+        </h1>
+
+        <p className="mt-3 text-content-muted">
+          Sign in to view your items.
+        </p>
+
+        <Link
+          to="/login"
+          className="mt-7 block rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-brand-700"
+        >
+          Sign in
+        </Link>
+
+        <Link
+          to="/"
+          className="mt-4 inline-block rounded text-sm font-medium text-accent hover:underline"
+        >
+          Continue shopping
+        </Link>
+      </section>
+    </main>
+  );
+}
 
   if (loading) return <p className="text-center mt-10">Loading cart...</p>;
 

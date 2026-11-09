@@ -1,48 +1,81 @@
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
-function Navbar() {
+export default function Navbar() {
   const { user, logout } = useAuth();
   const { cartCount } = useCart();
 
+  function navigationClass({ isActive }) {
+    return `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+      isActive
+        ? 'bg-brand-600 text-white'
+        : 'text-content-main hover:bg-surface-input hover:text-accent'
+    }`;
+  }
+
   return (
-    <nav className="bg-white border-b shadow-sm">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-        <Link to="/" className="text-xl font-bold text-blue-600">
-          MiniMarket
+    <header className="border-b border-outline bg-surface-card">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4">
+        <Link
+          to="/"
+          className="text-2xl font-bold tracking-tight text-accent"
+        >
+          MiniMarket.
         </Link>
-        <div className="flex flex-wrap justify-end gap-x-4 gap-y-2 text-sm items-center">
-          <Link to="/" className="hover:text-blue-600">Home</Link>
-          <Link to="/cart" className="hover:text-blue-600 flex items-center gap-1">
+
+        <nav
+          aria-label="Main navigation"
+          className="flex flex-wrap items-center gap-1"
+        >
+          <NavLink to="/" end className={navigationClass}>
+            Shop
+          </NavLink>
+
+          <NavLink to="/cart" className={navigationClass}>
             Cart
+
             {cartCount > 0 && (
-              <span className="bg-blue-600 text-white text-xs font-semibold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+              <span className="rounded-full bg-surface-card px-2 py-0.5 text-xs font-bold text-accent">
                 {cartCount}
               </span>
             )}
-          </Link>
-          <Link to="/orders" className="hover:text-blue-600">Orders</Link>
+          </NavLink>
+
           {user ? (
             <>
-              {user?.is_admin && (
-                <>
-                  <Link to="/admin/dashboard" className="hover:text-blue-600">Dashboard</Link>
-                  <Link to="/admin/products" className="hover:text-blue-600">Admin</Link>
-                  <Link to="/admin/orders" className="hover:text-blue-600">Manage Orders</Link>
-                  <Link to="/admin/categories" className="hover:text-blue-600">Categories</Link>
-                </>
+              <NavLink to="/orders" className={navigationClass}>
+                Orders
+              </NavLink>
+
+              <NavLink to="/account" className={navigationClass}>
+                My account
+              </NavLink>
+
+              {user.is_admin && (
+                <NavLink
+                  to="/admin/dashboard"
+                  className={navigationClass}
+                >
+                  Admin
+                </NavLink>
               )}
-              <Link to="/account" className="text-gray-500 hover:text-blue-600">Hi, {user.name}</Link>
-              <button onClick={logout} className="hover:text-blue-600">Logout</button>
+
+              <button
+                type="button"
+                onClick={logout}
+                className="ml-2 rounded-lg border border-outline px-3 py-2 text-sm font-medium text-content-main hover:border-accent"
+              >
+                Log out
+              </button>
             </>
           ) : (
-            <Link to="/login" className="hover:text-blue-600">Login</Link>
+            <NavLink to="/login" className={navigationClass}>
+              Sign in
+            </NavLink>
           )}
-        </div>
+        </nav>
       </div>
-    </nav>
+    </header>
   );
 }
-
-export default Navbar;

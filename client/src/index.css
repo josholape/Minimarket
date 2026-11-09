@@ -1,15 +1,75 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #eff6ff;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
+  --color-brand-50: #f5f3ff;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+
   --font-sans: "Segoe UI", system-ui, sans-serif;
 }
 
+@theme inline {
+  --color-surface-page: var(--page);
+  --color-surface-card: var(--card);
+  --color-surface-input: var(--input);
+  --color-content-main: var(--text);
+  --color-content-muted: var(--muted);
+  --color-outline: var(--border);
+  --color-accent: var(--accent);
+}
+
+:root {
+  color-scheme: light;
+
+  --page: #f6f5fa;
+  --card: #ffffff;
+  --input: #ffffff;
+  --text: #211a30;
+  --muted: #625970;
+  --border: #d5cede;
+  --accent: #6d28d9;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page: #121019;
+  --card: #211c2d;
+  --input: #2d263b;
+  --text: #faf7ff;
+  --muted: #c6bdd4;
+  --border: #60546f;
+  --accent: #d0b8ff;
+}
+
 @layer base {
-  body { margin: 0; color: #172033; font-family: var(--font-sans); }
-  button, input { font: inherit; }
-  button:not(:disabled) { cursor: pointer; }
-  :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+  body {
+    margin: 0;
+    background-color: var(--page);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
+}
+
+/* Keep native dropdown options readable in both themes. */
+select option {
+  background-color: var(--input);
+  color: var(--text);
 }
