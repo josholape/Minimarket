@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../api';
 import { formatPrice } from '../utils/currency';
 
@@ -11,94 +11,162 @@ const emptyForm = {
   category_id: '',
 };
 
-function AdminProducts() {
+const inputClass =
+  'mt-2 w-full rounded-lg border border-outline bg-surface-input px-3 py-2.5 text-content-main placeholder:text-content-muted disabled:opacity-60';
+
+const labelClass =
+  'block text-sm font-semibold text-content-main';
+
+const primaryButtonClass =
+  'rounded-lg bg-brand-600 px-5 py-2.5 font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60';
+
+export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
-  const [message, setMessage] = useState('');
+
+  const [message, setMessage] = useState({
+    text: '',
+    isError: false,
+  });
+
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [dragging, setDragging] = useState(false);
 
   async function loadData() {
     try {
-      const [p, c] = await Promise.all([api.get('/products'), api.get('/categories')]);
-      setProducts(p.data.products);
-      setCategories(c.data.categories);
-    } catch (err) {
-      console.error(err);
-      setMessage('Failed to load data');
+      const [productsResponse, categoriesResponse] =
+        await Promise.all([
+          api.get('/products'),
+          api.get('/categories'),
+        ]);
+
+      setProducts(productsResponse.data.products);
+      setCategories(categoriesResponse.data.categories);
+    } catch {
+      setMessage({
+        text: 'Failed to load products or categories.',
+        isError: true,
+      });
     }
   }
 
-useEffect(() => {
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  loadData();
-}, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData();
+  }, []);
 
-  function handleChange(e) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  function handleChange(event) {
+    const { name, value } = event.target;
+
+    setForm(previous => ({
+      ...previous,
+      [name]: value,
+    }));
   }
 
   async function uploadImage(file) {
-    if (!file) return;
+    if (!file || uploading || saving) return;
+
     if (!file.type.startsWith('image/')) {
-      setMessage('Please choose an image file');
+      setMessage({
+        text: 'Please choose an image file.',
+        isError: true,
+      });
       return;
     }
 
-    const data = new FormData();
-    data.append('image', file);
+    if (file.size > 4 * 1024 * 1024) {
+      setMessage({
+        text: 'Please choose an image no larger than 4 MB.',
+        isError: true,
+      });
+      return;
+    }
+
+    const uploadData = new FormData();
+    uploadData.append('image', file);
 
     setUploading(true);
+    setMessage({ text: '', isError: false });
+
     try {
-      const res = await api.post('/upload', data);
-      setForm((prev) => ({ ...prev, image_url: res.data.image_url }));
-      setMessage('Image uploaded. Click Save to apply it to the product.');
+      const response = await api.post('/upload', uploadData);
+
+      setForm(previous => ({
+        ...previous,
+        image_url: response.data.image_url,
+      }));
+
+      setMessage({
+        text: 'Image uploaded. Save the product to apply it.',
+        isError: false,
+      });
     } catch (err) {
-      setMessage(err.response?.data?.error || 'Upload failed');
+      setMessage({
+        text: err.response?.data?.error || 'Image upload failed.',
+        isError: true,
+      });
     } finally {
       setUploading(false);
     }
   }
 
-  function handleDrop(e) {
-    e.preventDefault();
+  function handleDrop(event) {
+    event.preventDefault();
     setDragging(false);
-    uploadImage(e.dataTransfer.files[0]);
+    uploadImage(event.dataTransfer.files[0]);
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setMessage('');
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    if (saving || uploading) return;
+
+    setSaving(true);
+    setMessage({ text: '', isError: false });
 
     const payload = {
-      name: form.name,
-      description: form.description,
-      price: parseFloat(form.price),
-      stock: parseInt(form.stock, 10) || 0,
-      image_url: form.image_url || null,
-      category_id: form.category_id ? parseInt(form.category_id, 10) : null,
+      name: form.name.trim(),
+      description: form.description.trim(),
+      price: Number(form.price),
+      stock: Number(form.stock || 0),
+      image_url: form.image_url.trim() || null,
+      category_id: form.category_id
+        ? Number(form.category_id)
+        : null,
     };
 
     try {
       if (editingId) {
         await api.put(`/products/${editingId}`, payload);
-        setMessage('Product updated');
       } else {
         await api.post('/products', payload);
-        setMessage('Product created');
       }
+
+      setMessage({
+        text: editingId ? 'Product updated.' : 'Product created.',
+        isError: false,
+      });
+
       setForm(emptyForm);
       setEditingId(null);
-      loadData();
+      await loadData();
     } catch (err) {
-      setMessage(err.response?.data?.error || 'Save failed');
+      setMessage({
+        text: err.response?.data?.error || 'Could not save product.',
+        isError: true,
+      });
+    } finally {
+      setSaving(false);
     }
   }
 
   function startEdit(product) {
     setEditingId(product.id);
+
     setForm({
       name: product.name,
       description: product.description || '',
@@ -107,130 +175,320 @@ useEffect(() => {
       image_url: product.image_url || '',
       category_id: product.category_id || '',
     });
+
+    setMessage({ text: '', isError: false });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function cancelEdit() {
     setEditingId(null);
     setForm(emptyForm);
+    setMessage({ text: '', isError: false });
   }
 
   async function handleDelete(id) {
     if (!window.confirm('Delete this product?')) return;
+
     try {
       await api.delete(`/products/${id}`);
-      setMessage('Product deleted');
-      loadData();
+
+      if (editingId === id) {
+        setEditingId(null);
+        setForm(emptyForm);
+      }
+
+      setMessage({
+        text: 'Product deleted.',
+        isError: false,
+      });
+
+      await loadData();
     } catch (err) {
-      setMessage(err.response?.data?.error || 'Delete failed');
+      setMessage({
+        text: err.response?.data?.error || 'Could not delete product.',
+        isError: true,
+      });
     }
   }
 
-  const inputClass = 'w-full border rounded px-3 py-2';
-
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Manage Products</h1>
+    <main className="mx-auto max-w-6xl px-4 py-8 text-content-main sm:px-6">
+      <header className="mb-7">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Products
+        </h1>
 
-      {message && <p className="mb-4 text-sm text-green-600">{message}</p>}
+        <p className="mt-2 text-content-muted">
+          Add products and keep your catalog up to date.
+        </p>
+      </header>
 
-      <form onSubmit={handleSubmit} className="border rounded-lg p-4 mb-8 space-y-3">
-        <h2 className="font-semibold text-lg">
-          {editingId ? `Edit product #${editingId}` : 'Add a new product'}
-        </h2>
-
-        <input name="name" placeholder="Name" value={form.name} onChange={handleChange} className={inputClass} required />
-        <textarea name="description" placeholder="Description" value={form.description} onChange={handleChange} className={inputClass} rows="3" />
-
-        <div className="grid grid-cols-2 gap-3">
-          <input name="price" type="number" step="0.01" min="0" placeholder="Price" value={form.price} onChange={handleChange} className={inputClass} required />
-          <input name="stock" type="number" min="0" placeholder="Stock" value={form.stock} onChange={handleChange} className={inputClass} />
-        </div>
-
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded p-4 text-center text-sm ${
-            dragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+      {message.text && (
+        <p
+          role={message.isError ? 'alert' : 'status'}
+          className={`mb-5 rounded-xl border p-4 text-sm ${
+            message.isError
+              ? 'border-red-300 bg-red-100 text-red-900'
+              : 'border-emerald-300 bg-emerald-100 text-emerald-900'
           }`}
         >
-          {form.image_url && (
-            <img src={form.image_url} alt="Preview" className="h-32 mx-auto mb-2 object-cover rounded" />
-          )}
-          <p className="text-gray-500 mb-1">
-            {uploading ? 'Uploading...' : 'Drag and drop an image here, or'}
-          </p>
-          <label className="text-blue-600 cursor-pointer hover:underline">
-            choose a file
+          {message.text}
+        </p>
+      )}
+
+      <form
+        onSubmit={handleSubmit}
+        aria-busy={saving || uploading}
+        className="mb-8 rounded-2xl border border-outline bg-surface-card p-5 shadow-sm sm:p-6"
+      >
+        <h2 className="mb-5 text-lg font-semibold">
+          {editingId ? `Edit product #${editingId}` : 'Add a product'}
+        </h2>
+
+        <fieldset
+          disabled={saving || uploading}
+          className="min-w-0 space-y-4"
+        >
+          <div>
+            <label htmlFor="product-name" className={labelClass}>
+              Product name
+            </label>
+
             <input
+              id="product-name"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              maxLength={200}
+              required
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="product-description" className={labelClass}>
+              Description
+            </label>
+
+            <textarea
+              id="product-description"
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              rows={3}
+              className={inputClass}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="product-price" className={labelClass}>
+                Price (PHP)
+              </label>
+
+              <input
+                id="product-price"
+                name="price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.price}
+                onChange={handleChange}
+                required
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="product-stock" className={labelClass}>
+                Stock
+              </label>
+
+              <input
+                id="product-stock"
+                name="stock"
+                type="number"
+                step="1"
+                min="0"
+                value={form.stock}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div
+            onDragOver={event => {
+              event.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            className={`rounded-xl border-2 border-dashed p-5 ${
+              dragging
+                ? 'border-accent bg-surface-input'
+                : 'border-outline'
+            }`}
+          >
+            {form.image_url && (
+              <img
+                src={form.image_url}
+                alt="Product preview"
+                className="mx-auto mb-4 h-32 max-w-full rounded-lg object-contain"
+              />
+            )}
+
+            <label htmlFor="product-file" className={labelClass}>
+              Product image
+            </label>
+
+            <p className="mt-1 text-sm text-content-muted">
+              Drag an image here or choose a file. Maximum 4 MB.
+            </p>
+
+            <input
+              id="product-file"
               type="file"
               accept="image/*"
-              className="hidden"
-              onChange={(e) => uploadImage(e.target.files[0])}
+              onChange={event => {
+                uploadImage(event.target.files[0]);
+                event.target.value = '';
+              }}
+              className="mt-3 block w-full text-sm text-content-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand-600 file:px-4 file:py-2 file:font-semibold file:text-white"
             />
-          </label>
-        </div>
+          </div>
 
-        <input
-          name="image_url"
-          placeholder="...or paste an image URL"
-          value={form.image_url}
-          onChange={handleChange}
-          className={inputClass}
-        />
+          <div>
+            <label htmlFor="product-image-url" className={labelClass}>
+              Image URL
+            </label>
 
-        <select name="category_id" value={form.category_id} onChange={handleChange} className={inputClass}>
-          <option value="">No category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+            <input
+              id="product-image-url"
+              name="image_url"
+              value={form.image_url}
+              onChange={handleChange}
+              placeholder="Or paste an image URL"
+              className={inputClass}
+            />
+          </div>
 
-        <div className="flex gap-3">
-          <button className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
-            {editingId ? 'Save changes' : 'Add product'}
-          </button>
-          {editingId && (
-            <button type="button" onClick={cancelEdit} className="border px-6 py-2 rounded hover:bg-gray-50">
-              Cancel
+          <div>
+            <label htmlFor="product-category" className={labelClass}>
+              Category
+            </label>
+
+            <select
+              id="product-category"
+              name="category_id"
+              value={form.category_id}
+              onChange={handleChange}
+              className={inputClass}
+            >
+              <option value="">No category</option>
+
+              {categories.map(category => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-wrap gap-3 pt-2">
+            <button type="submit" className={primaryButtonClass}>
+              {saving
+                ? 'Saving…'
+                : editingId
+                  ? 'Save changes'
+                  : 'Add product'}
             </button>
-          )}
-        </div>
+
+            {editingId && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="rounded-lg border border-outline px-5 py-2.5 font-semibold hover:bg-surface-input"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </fieldset>
+
+        {uploading && (
+          <p role="status" className="mt-3 text-sm text-content-muted">
+            Uploading image…
+          </p>
+        )}
       </form>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border">
-          <thead className="bg-gray-50 text-sm">
-            <tr>
-              <th className="p-3">ID</th>
-              <th className="p-3">Name</th>
-              <th className="p-3">Category</th>
-              <th className="p-3">Price</th>
-              <th className="p-3">Stock</th>
-              <th className="p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id} className="border-t">
-                <td className="p-3">{p.id}</td>
-                <td className="p-3">{p.name}</td>
-                <td className="p-3">{p.category_name || '—'}</td>
-                <td className="p-3">{formatPrice(p.price)}</td>
-                <td className="p-3">{p.stock}</td>
-                <td className="p-3 space-x-3">
-                  <button onClick={() => startEdit(p)} className="text-blue-600 hover:underline">Edit</button>
-                  <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:underline">Delete</button>
-                </td>
+      <section className="overflow-hidden rounded-2xl border border-outline bg-surface-card">
+        <h2 className="p-5 text-lg font-semibold">
+          Product catalog
+        </h2>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-surface-input text-content-main">
+              <tr>
+                {['ID', 'Name', 'Category', 'Price', 'Stock', 'Actions'].map(
+                  heading => (
+                    <th key={heading} scope="col" className="p-3">
+                      {heading}
+                    </th>
+                  )
+                )}
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {products.length === 0 && <p className="text-gray-500 mt-4">No products yet.</p>}
-      </div>
-    </div>
+            </thead>
+
+            <tbody>
+              {products.map(product => (
+                <tr
+                  key={product.id}
+                  className="border-t border-outline"
+                >
+                  <td className="p-3">{product.id}</td>
+                  <td className="p-3 font-medium">{product.name}</td>
+                  <td className="p-3 text-content-muted">
+                    {product.category_name || 'Uncategorized'}
+                  </td>
+                  <td className="whitespace-nowrap p-3">
+                    {formatPrice(product.price)}
+                  </td>
+                  <td className="p-3">{product.stock}</td>
+
+                  <td className="whitespace-nowrap p-3">
+                    <button
+                      type="button"
+                      disabled={saving || uploading}
+                      onClick={() => startEdit(product)}
+                      className="mr-4 font-semibold text-accent hover:underline disabled:opacity-50"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={saving || uploading}
+                      onClick={() => handleDelete(product.id)}
+                      className="rounded-md bg-red-100 px-2 py-1 font-semibold text-red-900 hover:bg-red-200 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {products.length === 0 && (
+          <p className="p-5 text-sm text-content-muted">
+            No products yet.
+          </p>
+        )}
+      </section>
+    </main>
   );
 }
-
-export default AdminProducts;

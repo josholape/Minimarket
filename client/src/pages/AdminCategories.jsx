@@ -1,106 +1,245 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../api';
 
-function AdminCategories() {
+export default function AdminCategories() {
   const [categories, setCategories] = useState([]);
   const [name, setName] = useState('');
-  const [message, setMessage] = useState({ text: '', isError: false });
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const [message, setMessage] = useState({
+    text: '',
+    isError: false,
+  });
 
   useEffect(() => {
+    let active = true;
+
     async function loadCategories() {
       try {
-        const res = await api.get('/categories');
-        setCategories(res.data.categories);
-      } catch (err) {
-        console.error(err);
-        setMessage({ text: 'Failed to load categories', isError: true });
+        const response = await api.get('/categories');
+
+        if (active) {
+          setCategories(response.data.categories);
+        }
+      } catch {
+        if (active) {
+          setMessage({
+            text: 'Failed to load categories.',
+            isError: true,
+          });
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
+
     loadCategories();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  async function handleAdd(e) {
-    e.preventDefault();
-    try {
-      const res = await api.post('/categories', { name });
-      const added = res.data.category;
-      setCategories((prev) =>
-        [...prev, added].sort((a, b) => a.name.localeCompare(b.name))
-      );
-      setName('');
-      setMessage({ text: `Added "${added.name}"`, isError: false });
-    } catch (err) {
+  async function handleAdd(event) {
+    event.preventDefault();
+
+    if (busy) return;
+
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
       setMessage({
-        text: err.response?.data?.error || 'Could not add category',
+        text: 'Please enter a category name.',
         isError: true,
       });
+      return;
+    }
+
+    setBusy(true);
+    setMessage({ text: '', isError: false });
+
+    try {
+      const response = await api.post('/categories', {
+        name: trimmedName,
+      });
+
+      const added = response.data.category;
+
+      setCategories(previous =>
+        [...previous, added].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )
+      );
+
+      setName('');
+
+      setMessage({
+        text: `Added "${added.name}".`,
+        isError: false,
+      });
+    } catch (err) {
+      setMessage({
+        text:
+          err.response?.data?.error ||
+          'Could not add category.',
+        isError: true,
+      });
+    } finally {
+      setBusy(false);
     }
   }
 
   async function handleDelete(category) {
-    if (!window.confirm(`Delete "${category.name}"? Its products will become Uncategorized.`)) {
-      return;
-    }
+    if (busy) return;
+
+    const confirmed = window.confirm(
+      `Delete "${category.name}"? Its products will become uncategorized.`
+    );
+
+    if (!confirmed) return;
+
+    setBusy(true);
+    setMessage({ text: '', isError: false });
+
     try {
       await api.delete(`/categories/${category.id}`);
-      setCategories((prev) => prev.filter((c) => c.id !== category.id));
-      setMessage({ text: `Deleted "${category.name}"`, isError: false });
+
+      setCategories(previous =>
+        previous.filter(item => item.id !== category.id)
+      );
+
+      setMessage({
+        text: `Deleted "${category.name}".`,
+        isError: false,
+      });
     } catch (err) {
       setMessage({
-        text: err.response?.data?.error || 'Could not delete category',
+        text:
+          err.response?.data?.error ||
+          'Could not delete category.',
         isError: true,
       });
+    } finally {
+      setBusy(false);
     }
   }
 
-  if (loading) return <p className="text-center mt-10">Loading categories...</p>;
+  if (loading) {
+    return (
+      <p role="status" className="p-10 text-center text-content-muted">
+        Loading categories…
+      </p>
+    );
+  }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Manage Categories</h1>
+    <main className="mx-auto max-w-3xl px-4 py-8 text-content-main sm:px-6">
+      <header className="mb-7">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Categories
+        </h1>
+
+        <p className="mt-2 text-content-muted">
+          Organize products so shoppers can find them easily.
+        </p>
+      </header>
 
       {message.text && (
-        <p className={`mb-4 text-sm ${message.isError ? 'text-red-600' : 'text-green-600'}`}>
+        <p
+          role={message.isError ? 'alert' : 'status'}
+          className={`mb-5 rounded-xl border p-4 text-sm ${
+            message.isError
+              ? 'border-red-300 bg-red-100 text-red-900'
+              : 'border-emerald-300 bg-emerald-100 text-emerald-900'
+          }`}
+        >
           {message.text}
         </p>
       )}
 
-      <form onSubmit={handleAdd} className="flex gap-3 mb-8">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="New category name"
-          maxLength={100}
-          className="flex-1 border rounded px-3 py-2"
-          required
-        />
-        <button className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
-          Add
-        </button>
+      <form
+        onSubmit={handleAdd}
+        aria-busy={busy}
+        className="mb-6 rounded-2xl border border-outline bg-surface-card p-5 shadow-sm"
+      >
+        <label
+          htmlFor="category-name"
+          className="block text-sm font-semibold"
+        >
+          New category
+        </label>
+
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+          <input
+            id="category-name"
+            value={name}
+            onChange={event => setName(event.target.value)}
+            placeholder="For example, Electronics"
+            maxLength={100}
+            required
+            disabled={busy}
+            className="min-w-0 flex-1 rounded-lg border border-outline bg-surface-input px-3 py-2.5 text-content-main placeholder:text-content-muted disabled:opacity-60"
+          />
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-lg bg-brand-600 px-5 py-2.5 font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Add category
+          </button>
+        </div>
+
+        {busy && (
+          <p role="status" className="mt-3 text-sm text-content-muted">
+            Saving changes…
+          </p>
+        )}
       </form>
 
-      {categories.length === 0 ? (
-        <p className="text-gray-500">No categories yet.</p>
-      ) : (
-        <ul className="border rounded divide-y">
-          {categories.map((c) => (
-            <li key={c.id} className="flex items-center justify-between p-3">
-              <span>{c.name}</span>
-              <button
-                onClick={() => handleDelete(c)}
-                className="text-red-500 text-sm hover:underline"
+      <section className="overflow-hidden rounded-2xl border border-outline bg-surface-card">
+        <div className="border-b border-outline p-5">
+          <h2 className="font-semibold">
+            Your categories
+          </h2>
+
+          <p className="mt-1 text-sm text-content-muted">
+            {categories.length} categories
+          </p>
+        </div>
+
+        {categories.length === 0 ? (
+          <p className="p-5 text-sm text-content-muted">
+            No categories yet. Add your first one above.
+          </p>
+        ) : (
+          <ul className="divide-y divide-outline">
+            {categories.map(category => (
+              <li
+                key={category.id}
+                className="flex items-center justify-between gap-4 p-4"
               >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+                <span className="min-w-0 break-words font-medium">
+                  {category.name}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => handleDelete(category)}
+                  disabled={busy}
+                  aria-label={`Delete ${category.name}`}
+                  className="shrink-0 rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-900 hover:bg-red-200 disabled:opacity-60"
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </main>
   );
 }
-
-export default AdminCategories;

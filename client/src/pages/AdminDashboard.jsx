@@ -1,178 +1,324 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { formatPrice } from '../utils/currency';
 
 const statusStyles = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  shipped: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-red-100 text-red-800',
+  pending: 'bg-amber-100 text-amber-900',
+  shipped: 'bg-blue-100 text-blue-900',
+  completed: 'bg-emerald-100 text-emerald-900',
+  cancelled: 'bg-red-100 text-red-900',
 };
+
+const panelClass =
+  'rounded-2xl border border-outline bg-surface-card p-5 shadow-sm';
 
 function StatCard({ label, value, note }) {
   return (
-    <div className="border rounded-lg p-4">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-2xl font-bold mt-1">{value}</p>
-      {note && <p className="text-xs text-gray-400 mt-1">{note}</p>}
+    <div className={panelClass}>
+      <p className="text-sm font-medium text-content-muted">
+        {label}
+      </p>
+
+      <p className="mt-2 break-words text-2xl font-bold text-content-main">
+        {value}
+      </p>
+
+      {note && (
+        <p className="mt-2 text-xs text-content-muted">
+          {note}
+        </p>
+      )}
     </div>
   );
 }
 
-function AdminDashboard() {
+export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    let active = true;
+
     async function loadDashboard() {
       try {
-        const res = await api.get('/admin/dashboard');
-        setData(res.data);
+        const response = await api.get('/admin/dashboard');
+
+        if (active) {
+          setData(response.data);
+        }
       } catch (err) {
-        console.error(err);
-        setError(err.response?.data?.error || 'Failed to load dashboard');
+        if (active) {
+          setError(
+            err.response?.data?.error ||
+              'Failed to load dashboard.'
+          );
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
+
     loadDashboard();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  if (loading) return <p className="text-center mt-10">Loading dashboard...</p>;
-  if (error) return <p className="text-center mt-10 text-red-600">{error}</p>;
+  if (loading) {
+    return (
+      <p role="status" className="p-10 text-center text-content-muted">
+        Loading dashboard…
+      </p>
+    );
+  }
 
-  const { stats, ordersByStatus, lowStock, lowStockThreshold, topProducts, recentOrders } = data;
+  if (error) {
+    return (
+      <p role="alert" className="p-10 text-center text-accent">
+        {error}
+      </p>
+    );
+  }
+
+  const {
+    stats,
+    ordersByStatus,
+    lowStock,
+    lowStockThreshold,
+    topProducts,
+    recentOrders,
+  } = data;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+    <main className="mx-auto max-w-7xl px-4 py-8 text-content-main sm:px-6">
+      <header className="mb-7">
+        <p className="text-xs font-bold uppercase tracking-widest text-accent">
+          Store overview
+        </p>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <h1 className="mt-2 text-3xl font-bold tracking-tight">
+          Dashboard
+        </h1>
+
+        <p className="mt-2 text-content-muted">
+          Orders, customers, and products at a glance.
+        </p>
+      </header>
+
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Revenue"
+          label="Order value"
           value={formatPrice(stats.revenue)}
-          note="Excludes cancelled orders"
+          note="All time · excludes cancelled orders"
         />
+
         <StatCard
           label="Orders"
           value={stats.totalOrders}
           note={`${stats.activeOrders} not cancelled`}
         />
-        <StatCard label="Average order" value={formatPrice(stats.averageOrder)} />
-        <StatCard label="Customers" value={stats.customers} />
+
+        <StatCard
+          label="Average order"
+          value={formatPrice(stats.averageOrder)}
+          note="Excludes cancelled orders"
+        />
+
+        <StatCard
+          label="Customers"
+          value={stats.customers}
+          note="Non-admin accounts"
+        />
       </div>
 
-      {/* Orders by status */}
-      <h2 className="font-semibold text-lg mb-3">Orders by status</h2>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {Object.entries(ordersByStatus).map(([status, count]) => (
-          <Link
-            key={status}
-            to="/admin/orders"
-            className={`rounded-lg p-4 hover:opacity-80 transition ${statusStyles[status]}`}
-          >
-            <p className="text-sm capitalize">{status}</p>
-            <p className="text-2xl font-bold">{count}</p>
-          </Link>
-        ))}
-      </div>
+      <section className="mb-8">
+        <h2 className="mb-4 text-lg font-semibold">
+          Orders by status
+        </h2>
 
-      <div className="grid lg:grid-cols-2 gap-8 mb-8">
-        {/* Low stock */}
-        <div>
-          <h2 className="font-semibold text-lg mb-3">
-            Low stock <span className="text-sm text-gray-400 font-normal">({lowStockThreshold} or fewer)</span>
-          </h2>
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          {Object.entries(ordersByStatus).map(([status, count]) => (
+            <Link
+              key={status}
+              to="/admin/orders"
+              className={`${panelClass} transition-colors hover:border-accent`}
+            >
+              <span
+                className={`inline-block rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+                  statusStyles[status] || ''
+                }`}
+              >
+                {status}
+              </span>
+
+              <p className="mt-3 text-3xl font-bold">
+                {count}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <div className="mb-8 grid gap-6 xl:grid-cols-2">
+        <section className={panelClass}>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">
+              Stock alerts
+            </h2>
+
+            <span className="text-xs text-content-muted">
+              {lowStockThreshold} or fewer remaining
+            </span>
+          </div>
+
           {lowStock.length === 0 ? (
-            <p className="text-gray-500 text-sm border rounded-lg p-4">
+            <p className="text-sm text-content-muted">
               All products are well stocked.
             </p>
           ) : (
-            <ul className="border rounded-lg divide-y">
-              {lowStock.map((p) => (
-                <li key={p.id} className="flex items-center justify-between p-3">
-                  <span>{p.name}</span>
-                  {p.stock === 0 ? (
-                    <span className="text-xs bg-gray-800 text-white px-2 py-1 rounded">Out of stock</span>
-                  ) : (
-                    <span className="text-xs bg-orange-500 text-white px-2 py-1 rounded">
-                      {p.stock} left
-                    </span>
-                  )}
+            <ul className="divide-y divide-outline">
+              {lowStock.map(product => (
+                <li
+                  key={product.id}
+                  className="flex items-center justify-between gap-3 py-3"
+                >
+                  <span className="text-sm font-medium">
+                    {product.name}
+                  </span>
+
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${
+                      Number(product.stock) <= 0
+                        ? 'bg-slate-800 text-white'
+                        : 'bg-amber-100 text-amber-900'
+                    }`}
+                  >
+                    {Number(product.stock) <= 0
+                      ? 'Out of stock'
+                      : `${product.stock} left`}
+                  </span>
                 </li>
               ))}
             </ul>
           )}
-          <Link to="/admin/products" className="text-blue-600 text-sm hover:underline inline-block mt-2">
+
+          <Link
+            to="/admin/products"
+            className="mt-4 inline-block text-sm font-semibold text-accent hover:underline"
+          >
             Manage products →
+          </Link>
+        </section>
+
+        <section className={panelClass}>
+          <h2 className="mb-4 text-lg font-semibold">
+            Top sellers
+          </h2>
+
+          {topProducts.length === 0 ? (
+            <p className="text-sm text-content-muted">
+              No sales yet.
+            </p>
+          ) : (
+            <ol className="divide-y divide-outline">
+              {topProducts.map((product, index) => (
+                <li
+                  key={product.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-3"
+                >
+                  <span className="text-sm font-medium">
+                    <span className="mr-2 text-content-muted">
+                      {index + 1}.
+                    </span>
+
+                    {product.name}
+                  </span>
+
+                  <span className="text-xs text-content-muted">
+                    {product.units_sold} sold ·{' '}
+                    {formatPrice(product.revenue)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      </div>
+
+      <section className={panelClass}>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">
+            Recent orders
+          </h2>
+
+          <Link
+            to="/admin/orders"
+            className="text-sm font-semibold text-accent hover:underline"
+          >
+            View all orders →
           </Link>
         </div>
 
-        {/* Top products */}
-        <div>
-          <h2 className="font-semibold text-lg mb-3">Top sellers</h2>
-          {topProducts.length === 0 ? (
-            <p className="text-gray-500 text-sm border rounded-lg p-4">No sales yet.</p>
-          ) : (
-            <ul className="border rounded-lg divide-y">
-              {topProducts.map((p, index) => (
-                <li key={p.id} className="flex items-center justify-between p-3">
-                  <span>
-                    <span className="text-gray-400 mr-2">{index + 1}.</span>
-                    {p.name}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    {p.units_sold} sold · {formatPrice(p.revenue)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* Recent orders */}
-      <h2 className="font-semibold text-lg mb-3">Recent orders</h2>
-      {recentOrders.length === 0 ? (
-        <p className="text-gray-500 text-sm">No orders yet.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border">
-            <thead className="bg-gray-50 text-sm">
-              <tr>
-                <th className="p-3">Order</th>
-                <th className="p-3">Customer</th>
-                <th className="p-3">Date</th>
-                <th className="p-3">Total</th>
-                <th className="p-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentOrders.map((order) => (
-                <tr key={order.id} className="border-t">
-                  <td className="p-3">#{order.id}</td>
-                  <td className="p-3">{order.customer_name}</td>
-                  <td className="p-3">{new Date(order.created_at).toLocaleDateString()}</td>
-                  <td className="p-3 font-semibold">{formatPrice(order.total_amount)}</td>
-                  <td className="p-3">
-                    <span className={`text-xs px-2 py-1 rounded ${statusStyles[order.status] || ''}`}>
-                      {order.status}
-                    </span>
-                  </td>
+        {recentOrders.length === 0 ? (
+          <p className="text-sm text-content-muted">
+            No orders yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-outline">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-surface-input text-content-main">
+                <tr>
+                  <th scope="col" className="p-3">Order</th>
+                  <th scope="col" className="p-3">Customer</th>
+                  <th scope="col" className="p-3">Date</th>
+                  <th scope="col" className="p-3">Total</th>
+                  <th scope="col" className="p-3">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <Link to="/admin/orders" className="text-blue-600 text-sm hover:underline inline-block mt-2">
-        Manage all orders →
-      </Link>
-    </div>
+              </thead>
+
+              <tbody>
+                {recentOrders.map(order => (
+                  <tr
+                    key={order.id}
+                    className="border-t border-outline"
+                  >
+                    <td className="p-3 font-medium">
+                      #{order.id}
+                    </td>
+
+                    <td className="p-3">
+                      {order.customer_name}
+                    </td>
+
+                    <td className="whitespace-nowrap p-3 text-content-muted">
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </td>
+
+                    <td className="whitespace-nowrap p-3 font-semibold">
+                      {formatPrice(order.total_amount)}
+                    </td>
+
+                    <td className="p-3">
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs font-semibold capitalize ${
+                          statusStyles[order.status] || ''
+                        }`}
+                      >
+                        {order.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
-
-export default AdminDashboard;
