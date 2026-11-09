@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { formatPrice } from '../utils/currency';
+import MonthlySalesChart from '../components/MonthlySalesChart.jsx';
 
 const statusStyles = {
   pending: 'bg-amber-100 text-amber-900',
@@ -20,7 +21,7 @@ function StatCard({ label, value, note }) {
         {label}
       </p>
 
-      <p className="mt-2 break-words text-2xl font-bold text-content-main">
+      <p className="mt-2 break-words text-2xl font-bold">
         {value}
       </p>
 
@@ -92,33 +93,30 @@ export default function AdminDashboard() {
     lowStockThreshold,
     topProducts,
     recentOrders,
+    monthlySales,
   } = data;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 text-content-main sm:px-6">
       <header className="mb-7">
-        <p className="text-xs font-bold uppercase tracking-widest text-accent">
-          Store overview
-        </p>
-
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">
+        <h1 className="text-3xl font-bold tracking-tight">
           Dashboard
         </h1>
 
         <p className="mt-2 text-content-muted">
-          Orders, customers, and products at a glance.
+          A clear view of your store’s activity.
         </p>
       </header>
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Order value"
+          label="Total order value"
           value={formatPrice(stats.revenue)}
           note="All time · excludes cancelled orders"
         />
 
         <StatCard
-          label="Orders"
+          label="Total orders"
           value={stats.totalOrders}
           note={`${stats.activeOrders} not cancelled`}
         />
@@ -126,7 +124,7 @@ export default function AdminDashboard() {
         <StatCard
           label="Average order"
           value={formatPrice(stats.averageOrder)}
-          note="Excludes cancelled orders"
+          note="All time · excludes cancelled orders"
         />
 
         <StatCard
@@ -135,6 +133,15 @@ export default function AdminDashboard() {
           note="Non-admin accounts"
         />
       </div>
+
+      {Array.isArray(monthlySales) ? (
+        <MonthlySalesChart months={monthlySales} />
+      ) : (
+        <p role="status" className={`${panelClass} mb-8 text-content-muted`}>
+          Monthly analytics are unavailable. Restart the backend
+          after updating admin.js, then refresh.
+        </p>
+      )}
 
       <section className="mb-8">
         <h2 className="mb-4 text-lg font-semibold">
@@ -235,7 +242,6 @@ export default function AdminDashboard() {
                     <span className="mr-2 text-content-muted">
                       {index + 1}.
                     </span>
-
                     {product.name}
                   </span>
 

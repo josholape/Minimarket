@@ -8,10 +8,6 @@ export default function Footer() {
           <p className="font-semibold text-content-main">
             MiniMarket
           </p>
-
-          <p className="mt-1 text-sm text-content-muted">
-            Your everyday marketplace.
-          </p>
         </div>
 
         <div className="flex items-center gap-3">

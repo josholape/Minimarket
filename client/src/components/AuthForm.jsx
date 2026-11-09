@@ -89,32 +89,7 @@ export default function AuthForm({ mode }) {
 
       <div className="w-full max-w-md">
         {/* Brand */}
-        <Link
-          to="/"
-          className="mx-auto mb-8 flex w-fit items-center gap-3 rounded-lg"
-        >
-          <span
-            aria-hidden="true"
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-violet-400/30 bg-violet-500/15 text-violet-300"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-6 w-6"
-            >
-              <path d="M6 7h12l1 13H5L6 7Z" />
-              <path d="M9 8V6a3 3 0 0 1 6 0v2" />
-            </svg>
-          </span>
 
-          <span className="text-2xl font-bold tracking-tight text-violet-100">
-            MiniMarket<span className="text-violet-400">.</span>
-          </span>
-        </Link>
 
         {/* Authentication card */}
         <section
@@ -123,7 +98,7 @@ export default function AuthForm({ mode }) {
         >
           <header className="mb-8 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300">
-              Your everyday marketplace
+            
             </p>
 
             <h1
@@ -137,8 +112,8 @@ export default function AuthForm({ mode }) {
 
             <p className="mt-3 text-sm leading-6 text-violet-200/80">
               {isRegister
-                ? 'Join us and discover your next favorite.'
-                : 'Welcome back. Your next find is waiting.'}
+                ? 'to get started.'
+                : 'To continue to your MiniMarket account.'}
             </p>
           </header>
 

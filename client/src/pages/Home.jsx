@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { formatPrice } from '../utils/currency';
 
@@ -7,40 +7,55 @@ const PAGE_SIZE = 8;
 const LOW_STOCK_THRESHOLD = 5;
 
 const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest arrivals' },
-  { value: 'price-asc', label: 'Price: low to high' },
-  { value: 'price-desc', label: 'Price: high to low' },
-  { value: 'name-asc', label: 'Name: A to Z' },
+  { value: 'newest', label: 'Newest' },
+  { value: 'price-asc', label: 'Price: Low to high' },
+  { value: 'price-desc', label: 'Price: High to low' },
+  { value: 'name-asc', label: 'Name: A–Z' },
 ];
 
 export default function Home() {
+  const [params, setParams] = useSearchParams();
+
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [sort, setSort] = useState('newest');
-  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
+
+  const search = params.get('q') || '';
+  const category = params.get('category') || '';
+  const requestedSort = params.get('sort') || 'newest';
+
+  const sort = SORT_OPTIONS.some(
+    option => option.value === requestedSort
+  )
+    ? requestedSort
+    : 'newest';
+
+  const requestedPage = Number(params.get('page') || 1);
+
+  const page =
+    Number.isSafeInteger(requestedPage) && requestedPage > 0
+      ? requestedPage
+      : 1;
 
   useEffect(() => {
     let active = true;
 
-    async function fetchData() {
+    async function loadProducts() {
       try {
-        const [productsResponse, categoriesResponse] =
-          await Promise.all([
-            api.get('/products'),
-            api.get('/categories'),
-          ]);
+        const response = await api.get('/products');
 
-        if (!active) return;
+        if (!Array.isArray(response.data.products)) {
+          throw new Error('Unexpected product response');
+        }
 
-        setProducts(productsResponse.data.products);
-        setCategories(categoriesResponse.data.categories);
+        if (active) {
+          setProducts(response.data.products);
+        }
       } catch {
         if (active) {
-          setError('We couldn’t load the products. Please refresh to try again.');
+          setError(
+            'Could not load products. Make sure the backend is running, then refresh.'
+          );
         }
       } finally {
         if (active) {
@@ -49,7 +64,7 @@ export default function Home() {
       }
     }
 
-    fetchData();
+    loadProducts();
 
     return () => {
       active = false;
@@ -61,11 +76,11 @@ export default function Home() {
 
     const result = products.filter(product => {
       const matchesCategory =
-        selectedCategory === null ||
-        product.category_name === selectedCategory;
+        !category || product.category_name === category;
 
-      const matchesSearch =
-        product.name.toLowerCase().includes(term);
+      const matchesSearch = String(product.name || '')
+        .toLowerCase()
+        .includes(term);
 
       return matchesCategory && matchesSearch;
     });
@@ -79,19 +94,23 @@ export default function Home() {
           return Number(b.price) - Number(a.price);
 
         case 'name-asc':
-          return a.name.localeCompare(b.name);
+          return String(a.name || '').localeCompare(
+            String(b.name || '')
+          );
 
         default:
-          return b.id - a.id;
+          return Number(b.id) - Number(a.id);
       }
     });
 
     return result;
-  }, [products, search, selectedCategory, sort]);
+  }, [products, search, category, sort]);
+
+  const totalProducts = filteredProducts.length;
 
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredProducts.length / PAGE_SIZE)
+    Math.ceil(totalProducts / PAGE_SIZE)
   );
 
   const currentPage = Math.min(page, totalPages);
@@ -102,33 +121,42 @@ export default function Home() {
     startIndex + PAGE_SIZE
   );
 
-  function selectCategory(category) {
-    setSelectedCategory(category);
-    setPage(1);
+  let resultLabel = 'No products found';
+
+  if (totalProducts > 0) {
+    resultLabel =
+      totalPages > 1
+        ? `${startIndex + 1}–${
+            startIndex + pageProducts.length
+          } of ${totalProducts} products`
+        : `${totalProducts} ${
+            totalProducts === 1 ? 'product' : 'products'
+          }`;
   }
 
-  function clearFilters() {
-    setSearch('');
-    setSelectedCategory(null);
-    setSort('newest');
-    setPage(1);
+  function changeSort(value) {
+    const next = new URLSearchParams(params);
+
+    next.set('sort', value);
+    next.delete('page');
+
+    setParams(next);
   }
 
-  function goToPage(nextPage) {
-    setPage(nextPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  function goToPage(number) {
+    const next = new URLSearchParams(params);
+
+    next.set('page', String(number));
+    setParams(next);
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
   }
 
-  function categoryClass(active) {
-    return `rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-      active
-        ? 'border-brand-600 bg-brand-600 text-white'
-        : 'border-outline bg-surface-card text-content-main hover:border-accent'
-    }`;
-  }
-
-  function paginationClass(active) {
-    return `min-h-10 min-w-10 rounded-lg border px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
+  function pageButtonClass(active) {
+    return `min-h-10 min-w-10 rounded-lg border px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
       active
         ? 'border-brand-600 bg-brand-600 text-white'
         : 'border-outline bg-surface-card text-content-main enabled:hover:border-accent'
@@ -137,7 +165,10 @@ export default function Home() {
 
   if (loading) {
     return (
-      <p role="status" className="p-12 text-center text-content-muted">
+      <p
+        role="status"
+        className="p-12 text-center text-content-muted"
+      >
         Loading products…
       </p>
     );
@@ -145,119 +176,92 @@ export default function Home() {
 
   if (error) {
     return (
-      <p role="alert" className="p-12 text-center text-accent">
-        {error}
-      </p>
+      <div className="mx-auto max-w-md px-4 py-12">
+        <p
+          role="alert"
+          className="rounded-xl bg-red-100 p-4 text-sm text-red-900"
+        >
+          {error}
+        </p>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10">
-      <header className="mb-7">
-        <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-accent">
-          Discover MiniMarket
-        </p>
+    <main className="mx-auto max-w-6xl px-4 py-8 text-content-main">
+      {/* Heading and sorting */}
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {search
+              ? `Results for “${search}”`
+              : category || 'Products'}
+          </h1>
 
-        <h1 className="text-3xl font-bold tracking-tight text-content-main sm:text-4xl">
-          Find your next favorite
-        </h1>
-
-        <p className="mt-3 text-content-muted">
-          Browse by category or search for something you love.
-        </p>
-      </header>
-
-      {/* Search and category controls */}
-      <section
-        aria-label="Filter products"
-        className="mb-7 rounded-2xl border border-outline bg-surface-card p-5 sm:p-6"
-      >
-        <label
-          htmlFor="product-search"
-          className="mb-2 block text-sm font-semibold text-content-main"
-        >
-          Search products
-        </label>
-
-        <input
-          id="product-search"
-          type="search"
-          value={search}
-          onChange={event => {
-            setSearch(event.target.value);
-            setPage(1);
-          }}
-          placeholder="Try a keyboard, book, or mouse…"
-          className="w-full rounded-xl border border-outline bg-surface-input px-4 py-3 text-content-main placeholder:text-content-muted"
-        />
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => selectCategory(null)}
-            aria-pressed={selectedCategory === null}
-            className={categoryClass(selectedCategory === null)}
-          >
-            All products
-          </button>
-
-          {categories.map(category => (
-            <button
-              key={category.id}
-              type="button"
-              onClick={() => selectCategory(category.name)}
-              aria-pressed={selectedCategory === category.name}
-              className={categoryClass(
-                selectedCategory === category.name
+          {(search || category) && (
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+              {search && category && (
+                <span className="text-content-muted">
+                  In {category}
+                </span>
               )}
-            >
-              {category.name}
-            </button>
-          ))}
+
+              <Link
+                to="/"
+                className="rounded font-semibold text-accent hover:underline"
+              >
+                Clear filters
+              </Link>
+            </div>
+          )}
         </div>
-      </section>
 
-      {/* Results and sorting */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-        <p
-          role="status"
-          className="text-sm font-medium text-content-muted"
-        >
-          {filteredProducts.length > 0
-            ? `Showing ${startIndex + 1}–${
-                startIndex + pageProducts.length
-              } of ${filteredProducts.length} products`
-            : 'No products found'}
-        </p>
-
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <label
             htmlFor="product-sort"
-            className="shrink-0 text-sm font-semibold text-content-main"
+            className="text-sm text-content-muted"
           >
-            Sort by
+            Sort:
           </label>
 
-          <select
-            id="product-sort"
-            value={sort}
-            onChange={event => {
-              setSort(event.target.value);
-              setPage(1);
-            }}
-            className="min-h-11 rounded-xl border border-outline bg-surface-input px-3 py-2 text-sm font-medium text-content-main"
-          >
-            {SORT_OPTIONS.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+          <div className="relative">
+            <select
+              id="product-sort"
+              value={sort}
+              onChange={event =>
+                changeSort(event.target.value)
+              }
+              className="h-10 w-48 appearance-none rounded-lg border border-outline bg-surface-card py-2 pl-3 pr-9 text-sm font-medium text-content-main"
+            >
+              {SORT_OPTIONS.map(option => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
 
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-muted"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </div>
+        </div>
+      </header>
+
+      {/* Product cards */}
       {pageProducts.length === 0 ? (
-        <div className="rounded-2xl border border-outline bg-surface-card p-10 text-center">
+        <section className="rounded-2xl border border-outline bg-surface-card p-10 text-center">
           <h2 className="text-xl font-semibold">
             No matches this time
           </h2>
@@ -266,14 +270,13 @@ export default function Home() {
             Try another search or browse all products.
           </p>
 
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="mt-5 rounded-lg bg-brand-600 px-5 py-3 font-semibold text-white hover:bg-brand-700"
+          <Link
+            to="/"
+            className="mt-5 inline-block rounded-xl bg-brand-600 px-5 py-3 font-semibold text-white hover:bg-brand-700"
           >
-            Clear filters
-          </button>
-        </div>
+            Browse all products
+          </Link>
+        </section>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {pageProducts.map(product => {
@@ -281,13 +284,14 @@ export default function Home() {
             const outOfStock = stock <= 0;
 
             const lowStock =
-              !outOfStock && stock <= LOW_STOCK_THRESHOLD;
+              !outOfStock &&
+              stock <= LOW_STOCK_THRESHOLD;
 
             return (
               <Link
                 key={product.id}
                 to={`/products/${product.id}`}
-                className="group overflow-hidden rounded-2xl border border-outline bg-surface-card p-3 text-content-main shadow-sm transition-colors hover:border-accent"
+                className="group overflow-hidden rounded-2xl border border-outline bg-surface-card p-3 shadow-sm transition-colors hover:border-accent"
               >
                 <div className="relative overflow-hidden rounded-xl bg-surface-input">
                   <img
@@ -306,27 +310,23 @@ export default function Home() {
                   )}
 
                   {lowStock && (
-                    <span className="absolute left-2 top-2 rounded-md bg-amber-200 px-2 py-1 text-xs font-bold text-amber-950">
+                    <span className="absolute left-2 top-2 rounded-md bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">
                       Only {stock} left
                     </span>
                   )}
                 </div>
 
                 <div className="px-1 pb-2 pt-4">
-                  <p className="mb-1 text-xs font-medium text-content-muted">
+                  <p className="text-xs font-medium text-content-muted">
                     {product.category_name || 'Uncategorized'}
                   </p>
 
-                  <h2 className="text-base font-semibold group-hover:underline">
+                  <h2 className="mt-1 font-semibold group-hover:underline">
                     {product.name}
                   </h2>
 
                   <p className="mt-3 text-xl font-bold text-accent">
                     {formatPrice(product.price)}
-                  </p>
-
-                  <p className="mt-2 text-xs text-content-muted">
-                    View product →
                   </p>
                 </div>
               </Link>
@@ -335,16 +335,25 @@ export default function Home() {
         </div>
       )}
 
+      {/* Result count below the cards */}
+      <p
+        role="status"
+        className="mt-6 text-center text-sm font-medium text-content-muted"
+      >
+        {resultLabel}
+      </p>
+
+      {/* Pagination */}
       {totalPages > 1 && (
         <nav
           aria-label="Product pages"
-          className="mt-9 flex flex-wrap justify-center gap-2"
+          className="mt-4 flex flex-wrap justify-center gap-2"
         >
           <button
             type="button"
-            onClick={() => goToPage(currentPage - 1)}
             disabled={currentPage === 1}
-            className={paginationClass(false)}
+            onClick={() => goToPage(currentPage - 1)}
+            className={pageButtonClass(false)}
           >
             Previous
           </button>
@@ -358,9 +367,13 @@ export default function Home() {
               type="button"
               onClick={() => goToPage(number)}
               aria-current={
-                number === currentPage ? 'page' : undefined
+                number === currentPage
+                  ? 'page'
+                  : undefined
               }
-              className={paginationClass(number === currentPage)}
+              className={pageButtonClass(
+                number === currentPage
+              )}
             >
               {number}
             </button>
@@ -368,9 +381,9 @@ export default function Home() {
 
           <button
             type="button"
-            onClick={() => goToPage(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className={paginationClass(false)}
+            onClick={() => goToPage(currentPage + 1)}
+            className={pageButtonClass(false)}
           >
             Next
           </button>
