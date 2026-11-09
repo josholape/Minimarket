@@ -1,119 +1,230 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../api';
 import { formatPrice } from '../utils/currency';
 
-const STATUSES = ['pending', 'shipped', 'completed', 'cancelled'];
+const STATUSES = [
+  'pending',
+  'shipped',
+  'completed',
+  'cancelled',
+];
 
-const statusStyles = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  shipped: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-red-100 text-red-800',
-};
-
-function AdminOrders() {
+export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState({ text: '', isError: false });
+  const [updatingId, setUpdatingId] = useState(null);
+
+  const [message, setMessage] = useState({
+    text: '',
+    isError: false,
+  });
 
   useEffect(() => {
+    let active = true;
+
     async function loadOrders() {
       try {
-        const res = await api.get('/orders/admin/all');
-        setOrders(res.data.orders);
-      } catch (err) {
-        console.error(err);
-        setMessage({ text: 'Failed to load orders', isError: true });
+        const response = await api.get('/orders/admin/all');
+
+        if (active) {
+          setOrders(response.data.orders);
+        }
+      } catch {
+        if (active) {
+          setMessage({
+            text: 'Failed to load orders.',
+            isError: true,
+          });
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
+
     loadOrders();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function changeStatus(id, status) {
+    if (updatingId !== null) return;
+
+    setUpdatingId(id);
+    setMessage({ text: '', isError: false });
+
     try {
       await api.put(`/orders/${id}/status`, { status });
-      // Update just this order in the list, no need to reload everything
-      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
-      setMessage({ text: `Order #${id} marked as ${status}`, isError: false });
+
+      setOrders(previous =>
+        previous.map(order =>
+          order.id === id ? { ...order, status } : order
+        )
+      );
+
+      setMessage({
+        text: `Order #${id} marked as ${status}.`,
+        isError: false,
+      });
     } catch (err) {
       setMessage({
-        text: err.response?.data?.error || 'Could not update status',
+        text:
+          err.response?.data?.error ||
+          'Could not update order status.',
         isError: true,
       });
+    } finally {
+      setUpdatingId(null);
     }
   }
 
-  if (loading) return <p className="text-center mt-10">Loading orders...</p>;
+  if (loading) {
+    return (
+      <p role="status" className="p-10 text-center text-content-muted">
+        Loading orders…
+      </p>
+    );
+  }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Manage Orders</h1>
+    <main className="mx-auto max-w-7xl px-4 py-8 text-content-main sm:px-6">
+      <header className="mb-7">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Orders
+        </h1>
+
+        <p className="mt-2 text-content-muted">
+          Review customer orders and update their progress.
+        </p>
+      </header>
 
       {message.text && (
-        <p className={`mb-4 text-sm ${message.isError ? 'text-red-600' : 'text-green-600'}`}>
+        <p
+          role={message.isError ? 'alert' : 'status'}
+          className={`mb-5 rounded-xl border p-4 text-sm ${
+            message.isError
+              ? 'border-red-300 bg-red-100 text-red-900'
+              : 'border-emerald-300 bg-emerald-100 text-emerald-900'
+          }`}
+        >
           {message.text}
         </p>
       )}
 
-      {orders.length === 0 ? (
-        <p className="text-gray-500">No orders yet.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border">
-            <thead className="bg-gray-50 text-sm">
-              <tr>
-                <th className="p-3">Order</th>
-                <th className="p-3">Customer</th>
-                <th className="p-3">Ship to</th>
-                <th className="p-3">Date</th>
-                <th className="p-3">Total</th>
-                <th className="p-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order.id} className="border-t align-top">
-                  <td className="p-3">#{order.id}</td>
-                  <td className="p-3">
-                    <p>{order.customer_name}</p>
-                    <p className="text-gray-500 text-xs">{order.customer_email}</p>
-                  </td>
-                  <td className="p-3 text-sm">
-                    {order.shipping_address ? (
-                      <>
-                        <p>{order.shipping_name} · {order.shipping_phone}</p>
-                        <p className="text-gray-500 text-xs">
-                          {order.shipping_address}, {order.shipping_city}, {order.shipping_province}{' '}
-                          {order.shipping_postal_code}
-                        </p>
-                      </>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="p-3">{new Date(order.created_at).toLocaleDateString()}</td>
-                  <td className="p-3 font-semibold">{formatPrice(order.total_amount)}</td>
-                  <td className="p-3">
-                    <select
-                      value={order.status}
-                      onChange={(e) => changeStatus(order.id, e.target.value)}
-                      className={`text-xs px-2 py-1 rounded border ${statusStyles[order.status] || ''}`}
-                    >
-                      {STATUSES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </td>
+      <section className="overflow-hidden rounded-2xl border border-outline bg-surface-card shadow-sm">
+        {orders.length === 0 ? (
+          <p className="p-6 text-content-muted">
+            No orders yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-surface-input text-content-main">
+                <tr>
+                  {[
+                    'Order',
+                    'Customer',
+                    'Delivery address',
+                    'Date',
+                    'Total',
+                    'Status',
+                  ].map(heading => (
+                    <th key={heading} scope="col" className="p-4">
+                      {heading}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+              </thead>
+
+              <tbody>
+                {orders.map(order => (
+                  <tr
+                    key={order.id}
+                    className="border-t border-outline align-top"
+                  >
+                    <td className="p-4 font-semibold">
+                      #{order.id}
+                    </td>
+
+                    <td className="p-4">
+                      <p className="font-medium">
+                        {order.customer_name}
+                      </p>
+
+                      <p className="mt-1 break-all text-xs text-content-muted">
+                        {order.customer_email}
+                      </p>
+                    </td>
+
+                    <td className="min-w-60 p-4">
+                      {order.shipping_address ? (
+                        <>
+                          <p className="font-medium">
+                            {order.shipping_name}
+                          </p>
+
+                          <p className="mt-1 text-xs text-content-muted">
+                            {order.shipping_phone}
+                          </p>
+
+                          <p className="mt-1 text-xs leading-5 text-content-muted">
+                            {order.shipping_address},{' '}
+                            {order.shipping_city},{' '}
+                            {order.shipping_province}{' '}
+                            {order.shipping_postal_code}
+                          </p>
+                        </>
+                      ) : (
+                        <span className="text-content-muted">
+                          No address recorded
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="whitespace-nowrap p-4 text-content-muted">
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </td>
+
+                    <td className="whitespace-nowrap p-4 font-semibold">
+                      {formatPrice(order.total_amount)}
+                    </td>
+
+                    <td className="p-4">
+                      <select
+                        aria-label={`Status for order ${order.id}`}
+                        value={order.status}
+                        onChange={event =>
+                          changeStatus(order.id, event.target.value)
+                        }
+                        disabled={updatingId !== null}
+                        className="rounded-lg border border-outline bg-surface-input px-3 py-2 text-sm font-medium capitalize text-content-main disabled:opacity-60"
+                      >
+                        {STATUSES.map(status => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+
+                      {updatingId === order.id && (
+                        <p
+                          role="status"
+                          className="mt-2 text-xs text-content-muted"
+                        >
+                          Updating…
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
-
-export default AdminOrders;

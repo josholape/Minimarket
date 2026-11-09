@@ -126,6 +126,48 @@ router.put('/:id/status', adminMiddleware, async (req, res) => {
   }
 });
 
+// BUY NOW: creates an order for one product and leaves the cart unchanged.
+router.post('/buy-now', async (req, res) => {
+  const { product_id: productId, quantity } = req.body;
+  if (!Number.isSafeInteger(productId) || productId < 1 || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 2147483647) {
+    return res.status(400).json({ success: false, error: 'A valid product and quantity are required.' });
+  }
+  const { data: shipping, error: shippingError } = validateShipping(req.body.shipping);
+  if (shippingError) return res.status(400).json({ success: false, error: shippingError });
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const found = await client.query('SELECT id, name, price, stock FROM products WHERE id = $1 FOR UPDATE', [productId]);
+    const product = found.rows[0];
+    if (!product) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Product not found.' });
+    }
+    if (quantity > product.stock) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'Not enough stock. Available: ' + product.stock + '.' });
+    }
+    const created = await client.query(
+      `INSERT INTO orders (user_id, total_amount, status, shipping_name, shipping_phone,
+       shipping_address, shipping_city, shipping_province, shipping_postal_code)
+       VALUES ($1, $2::numeric * $3::integer, 'pending', $4, $5, $6, $7, $8, $9)
+       RETURNING id, total_amount, status, created_at`,
+      [req.user.userId, product.price, quantity, shipping.name, shipping.phone,
+       shipping.address, shipping.city, shipping.province, shipping.postal_code]
+    );
+    const order = created.rows[0];
+    await client.query('INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase) VALUES ($1, $2, $3, $4)', [order.id, product.id, quantity, product.price]);
+    await client.query('UPDATE products SET stock = stock - $1 WHERE id = $2', [quantity, product.id]);
+    await client.query('COMMIT');
+    res.status(201).json({ success: true, order });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    console.error('Buy now failed:', err.message);
+    res.status(500).json({ success: false, error: 'Could not place your order. Please try again.' });
+  } finally { client?.release(); }
+});
+
 // CHECKOUT - convert cart into an order (requires a shipping address)
 router.post('/checkout', async (req, res) => {
   // Validate the address before touching the database

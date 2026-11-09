@@ -1,71 +1,120 @@
-import { Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import Home from './pages/Home';
-import ProductDetail from './pages/ProductDetail';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import Cart from './pages/Cart';
-import Account from './pages/Account';
-import AdminRoute from './components/AdminRoute';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminProducts from './pages/AdminProducts';
-import AdminOrders from './pages/AdminOrders';
-import AdminCategories from './pages/AdminCategories';
-import Orders from './pages/Orders';
-import OrderDetail from './pages/OrderDetail';
+import {
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+} from 'react-router-dom';
 
-function App() {
+import Navbar from './components/Navbar.jsx';
+import Footer from './components/Footer.jsx';
+import AdminLayout from './components/AdminLayout.jsx';
+import AdminRoute from './components/AdminRoute.jsx';
+
+import Home from './pages/Home.jsx';
+import ProductDetail from './pages/ProductDetail.jsx';
+import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
+import Cart from './pages/Cart.jsx';
+import Account from './pages/Account.jsx';
+import Orders from './pages/Orders.jsx';
+import OrderDetail from './pages/OrderDetail.jsx';
+
+import AdminDashboard from './pages/AdminDashboard.jsx';
+import AdminProducts from './pages/AdminProducts.jsx';
+import AdminOrders from './pages/AdminOrders.jsx';
+import AdminCategories from './pages/AdminCategories.jsx';
+
+function StoreLayout() {
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       <Navbar />
-      <Routes>
+
+      <div className="flex-1">
+        <Outlet />
+      </div>
+
+      <Footer />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      {/* Customer-facing pages */}
+      <Route element={<StoreLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/products/:id" element={<ProductDetail />} />
+
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
+        <Route
+          path="/reset-password"
+          element={<ResetPassword />}
+        />
+
         <Route path="/cart" element={<Cart />} />
         <Route path="/account" element={<Account />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/:id" element={<OrderDetail />} />
+
         <Route
-          path="/admin/dashboard"
+          path="*"
           element={
-            <AdminRoute>
-              <AdminDashboard />
-            </AdminRoute>
+            <main className="mx-auto max-w-6xl px-4 py-12">
+              <h1 className="text-2xl font-bold">
+                Page not found
+              </h1>
+            </main>
           }
         />
+      </Route>
+
+      {/* Admin-only pages */}
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminLayout />
+          </AdminRoute>
+        }
+      >
         <Route
-          path="/admin/products"
-          element={
-            <AdminRoute>
-              <AdminProducts />
-            </AdminRoute>
-          }
+          index
+          element={<Navigate to="dashboard" replace />}
         />
+
         <Route
-          path="/admin/orders"
-          element={
-            <AdminRoute>
-              <AdminOrders />
-            </AdminRoute>
-          }
+          path="dashboard"
+          element={<AdminDashboard />}
         />
+
         <Route
-          path="/admin/categories"
-          element={
-            <AdminRoute>
-              <AdminCategories />
-            </AdminRoute>
-          }
+          path="products"
+          element={<AdminProducts />}
         />
-      </Routes>
-    </>
+
+        <Route
+          path="orders"
+          element={<AdminOrders />}
+        />
+
+        <Route
+          path="categories"
+          element={<AdminCategories />}
+        />
+
+        <Route
+          path="*"
+          element={<Navigate to="/admin/dashboard" replace />}
+        />
+      </Route>
+    </Routes>
   );
 }
-
-export default App;

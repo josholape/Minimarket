@@ -1,28 +1,33 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const { v2: cloudinary } = require('cloudinary');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 
 const router = express.Router();
 
-const uploadDir = path.join(__dirname, '..', 'uploads');
-fs.mkdirSync(uploadDir, { recursive: true });
+const cloudinaryConfigured = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${unique}${ext}`);
-  },
-});
+if (cloudinaryConfigured) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  });
+} else {
+  console.warn('Cloudinary is not configured. Image uploads will fail until the CLOUDINARY_* values are set in .env.');
+}
 
 const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+// The file is kept in memory (max 5MB) just long enough to forward it to Cloudinary
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (allowedTypes.includes(file.mimetype)) cb(null, true);
@@ -30,8 +35,26 @@ const upload = multer({
   },
 });
 
+// Wraps Cloudinary's stream upload so we can use await
+function uploadToCloudinary(buffer) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'minimarket/products',
+        resource_type: 'image',
+        // Cloudinary checks the real file contents, not just the type the browser claims
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+        // Shrink very large photos so they don't eat storage
+        transformation: [{ width: 1200, height: 1200, crop: 'limit' }],
+      },
+      (error, result) => (error ? reject(error) : resolve(result))
+    );
+    stream.end(buffer);
+  });
+}
+
 router.post('/', authMiddleware, adminMiddleware, (req, res) => {
-  upload.single('image')(req, res, (err) => {
+  upload.single('image')(req, res, async (err) => {
     if (err) {
       const message = err.code === 'LIMIT_FILE_SIZE' ? 'Image must be under 5MB' : err.message;
       return res.status(400).json({ success: false, error: message });
@@ -39,7 +62,18 @@ router.post('/', authMiddleware, adminMiddleware, (req, res) => {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No image uploaded' });
     }
-    res.status(201).json({ success: true, image_url: `/uploads/${req.file.filename}` });
+    if (!cloudinaryConfigured) {
+      return res.status(500).json({ success: false, error: 'Image storage is not configured on the server' });
+    }
+
+    try {
+      const result = await uploadToCloudinary(req.file.buffer);
+      // secure_url is the permanent https address of the image
+      res.status(201).json({ success: true, image_url: result.secure_url });
+    } catch (uploadError) {
+      console.error(uploadError);
+      res.status(502).json({ success: false, error: 'Image upload failed. Please try again.' });
+    }
   });
 });
 

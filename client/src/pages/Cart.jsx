@@ -100,6 +100,7 @@ function Cart() {
   }
 
   async function placeOrder() {
+    if (placing) return;
     const chosen = addresses.find((a) => a.id === selectedId);
     if (!chosen) {
       setMessage({ text: 'Please choose a shipping address', isError: true });
@@ -140,53 +141,103 @@ function Cart() {
   const total = items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0);
 
   if (!user) {
-    return (
-      <p className="text-center mt-10">
-        Please <Link to="/login" className="text-blue-600 underline">log in</Link> to view your cart.
-      </p>
-    );
-  }
+  return (
+    <main className="mx-auto flex min-h-[60svh] max-w-lg items-center justify-center px-4 py-12">
+      <section
+        aria-labelledby="cart-signin-title"
+        className="w-full rounded-2xl border border-outline bg-surface-card p-8 text-center shadow-sm sm:p-10"
+      >
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-surface-input text-accent">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-10 w-10"
+          >
+            <path d="M3 3h2l2.4 11.4a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L22 7H6" />
+            <circle cx="10" cy="21" r="1" />
+            <circle cx="19" cy="21" r="1" />
+          </svg>
+        </div>
+
+        <h1
+          id="cart-signin-title"
+          className="text-2xl font-bold text-content-main"
+        >
+          Your cart awaits
+        </h1>
+
+        <p className="mt-3 text-content-muted">
+          Sign in to view your items.
+        </p>
+
+        <Link
+          to="/login"
+          className="mt-7 block rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-brand-700"
+        >
+          Sign in
+        </Link>
+
+        <Link
+          to="/"
+          className="mt-4 inline-block rounded text-sm font-medium text-accent hover:underline"
+        >
+          Continue shopping
+        </Link>
+      </section>
+    </main>
+  );
+}
 
   if (loading) return <p className="text-center mt-10">Loading cart...</p>;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-3xl mx-auto px-4 py-8 text-content-main">
       <h1 className="text-3xl font-bold mb-6">Your Cart</h1>
 
       {message.text && (
-        <p className={`mb-4 text-sm ${message.isError ? 'text-red-600' : 'text-green-600'}`}>
+        <p className={`mb-4 text-sm ${message.isError ? 'rounded-lg bg-red-100 p-3 text-red-900' : 'rounded-lg bg-emerald-100 p-3 text-emerald-900'}`}>
           {message.text}
         </p>
       )}
 
       {items.length === 0 ? (
-        <p className="text-gray-500">Your cart is empty.</p>
+        <p className="text-content-muted">Your cart is empty.</p>
       ) : (
         <>
           <div className="space-y-4">
             {items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between border rounded p-4">
+              <div key={item.id} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-outline bg-surface-card p-5">
                 <div>
                   <p className="font-semibold">{item.name}</p>
-                  <p className="text-gray-500 text-sm">{formatPrice(item.price)} each</p>
+                  <p className="text-content-muted text-sm">{formatPrice(item.price)} each</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
+                    disabled={placing || showCheckout || item.quantity <= 1}
+                    aria-label={"Decrease quantity of " + item.name}
                     onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    className="border rounded px-2"
+                    className="rounded-lg border border-outline bg-surface-input px-3 py-2 disabled:opacity-40"
                   >
                     −
                   </button>
                   <span>{item.quantity}</span>
                   <button
+                    disabled={placing || showCheckout || item.quantity >= Number(item.stock)}
+                    aria-label={"Increase quantity of " + item.name}
                     onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    className="border rounded px-2"
+                    className="rounded-lg border border-outline bg-surface-input px-3 py-2 disabled:opacity-40"
                   >
                     +
                   </button>
                   <button
+                    disabled={placing || showCheckout}
                     onClick={() => removeItem(item.id)}
-                    className="text-red-500 text-sm ml-4 hover:underline"
+                    className="rounded-lg bg-red-100 p-3 text-red-900 text-sm ml-4 hover:underline"
                   >
                     Remove
                   </button>
@@ -195,12 +246,12 @@ function Cart() {
             ))}
           </div>
 
-          <div className="flex items-center justify-between mt-6">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-outline bg-surface-card p-5">
             <p className="text-xl font-bold">Total: {formatPrice(total)}</p>
             {!showCheckout && (
               <button
                 onClick={openCheckout}
-                className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                className="bg-brand-600 text-white px-6 py-2 rounded hover:bg-brand-700"
               >
                 Checkout
               </button>
@@ -208,10 +259,10 @@ function Cart() {
           </div>
 
           {showCheckout && (
-            <div className="border rounded-lg p-4 mt-6">
-              <div className="flex items-center justify-between mb-3">
+            <div className="border border-outline bg-surface-card rounded-2xl p-5 mt-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <h2 className="font-semibold text-lg">Delivery address</h2>
-                <Link to="/account" className="text-sm text-blue-600 hover:underline">
+                <Link to="/account" className="text-sm text-accent hover:underline">
                   Manage addresses
                 </Link>
               </div>
@@ -229,27 +280,28 @@ function Cart() {
                     {addresses.map((a) => (
                       <label
                         key={a.id}
-                        className={`flex items-start gap-3 border rounded p-3 cursor-pointer ${
-                          selectedId === a.id ? 'border-blue-600 bg-blue-50' : ''
+                        className={`flex items-start gap-3 border border-outline rounded-xl p-4 cursor-pointer ${
+                          selectedId === a.id ? 'border-accent bg-surface-input' : ''
                         }`}
                       >
                         <input
                           type="radio"
                           name="address"
+                          disabled={placing}
                           checked={selectedId === a.id}
                           onChange={() => setSelectedId(a.id)}
                           className="mt-1"
                         />
                         <div>
                           <p className="font-semibold">
-                            {a.name} <span className="text-gray-400 font-normal">| {a.phone}</span>
+                            {a.name} <span className="text-content-muted font-normal">| {a.phone}</span>
                           </p>
-                          <p className="text-sm text-gray-600">{a.address}</p>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-content-muted">{a.address}</p>
+                          <p className="text-sm text-content-muted">
                             {a.city}, {a.province} {a.postal_code}
                           </p>
                           {a.is_default && (
-                            <span className="inline-block mt-1 text-xs border border-blue-600 text-blue-600 px-2 py-0.5 rounded">
+                            <span className="inline-block mt-1 text-xs border border-accent text-accent px-2 py-0.5 rounded">
                               Default
                             </span>
                           )}
@@ -259,23 +311,25 @@ function Cart() {
                   </div>
 
                   <button
+                    disabled={placing}
                     onClick={() => setAddingAddress(true)}
-                    className="text-blue-600 text-sm hover:underline mb-4"
+                    className="text-accent text-sm hover:underline mb-4"
                   >
                     + Add new address
                   </button>
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-3">
                     <button
                       onClick={placeOrder}
                       disabled={placing}
-                      className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:bg-gray-300"
+                      className="bg-brand-600 text-white px-6 py-2 rounded hover:bg-brand-700 disabled:opacity-50"
                     >
                       {placing ? 'Placing order...' : `Place order (${formatPrice(total)})`}
                     </button>
                     <button
+                      disabled={placing}
                       onClick={() => setShowCheckout(false)}
-                      className="border px-6 py-2 rounded hover:bg-gray-50"
+                      className="border px-6 py-2 rounded hover:bg-surface-input"
                     >
                       Cancel
                     </button>
